@@ -1,5 +1,7 @@
 #include "page/bitmap_page.h"
 
+//wsx_start
+
 template<size_t PageSize>
 bool BitmapPage<PageSize>::AllocatePage(uint32_t &page_offset) {
   uint32_t MaxSupportedSize = GetMaxSupportedSize();
@@ -59,6 +61,8 @@ bool BitmapPage<PageSize>::IsPageFree(uint32_t page_offset) const {
   if ( !( bytes[i_byte] & i_bit ) ) return true;
   else return false;
 }
+
+//wsx_end
 
 template<size_t PageSize>
 bool BitmapPage<PageSize>::IsPageFreeLow(uint32_t byte_index, uint8_t bit_index) const {
