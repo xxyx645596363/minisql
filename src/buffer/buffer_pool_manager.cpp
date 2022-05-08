@@ -62,7 +62,12 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
    page_id = AllocatePage();
    
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
-  
+  bool flag = true;
+  for (uint32_t i = 0; i < pool_size_; i++)
+    if(pages_[i].pin_count_ == 0) {
+      flag = 0; break;
+    }
+  if(flag) return nullptr;
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   frame_id_t P;
   if(!free_list_.empty()){
