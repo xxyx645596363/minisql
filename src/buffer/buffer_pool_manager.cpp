@@ -41,7 +41,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   if(free_list_.empty()&&replacer_->Size()==0) return nullptr;
   // 2.     If R is dirty, write it back to the disk.
   if(pages_[R].IsDirty()){
-    FlushPageImpl(pages_[R].page_id_);
+    FlushPage(pages_[R].page_id_);
     pages_[R].is_dirty_ = 0;
   }
   // 3.     Delete R from the page table and insert P.
@@ -59,7 +59,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
 
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 0.   Make sure you call AllocatePage!
-   *page_id = AllocatePage();
+   page_id = AllocatePage();
    
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
   
@@ -72,12 +72,12 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
     replacer_->Victim(&P);
   }
   // 3.   Update P's metadata, zero out memory and add P to the page table.
-  page_table_[*page_id] = P;
+  page_table_[page_id] = P;
   pages_[P].ResetMemory();
   pages_[P].pin_count_ = 0;
   pages_[P].is_dirty_ = true;
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  pages_[P].page_id_ = *page_id;
+  pages_[P].page_id_ = page_id;
   return &pages_[P];
 }
 
@@ -135,7 +135,7 @@ bool BufferPoolManager::FlushPage(page_id_t page_id) {
 }
 
 page_id_t BufferPoolManager::AllocatePage() {
-  int next_page_id = disk_manager_->AllocatePage();
+  page_id_t next_page_id = disk_manager_->AllocatePage();
   return next_page_id;
 }
 
