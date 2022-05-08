@@ -15,7 +15,7 @@ bool LRUReplacer::Victim(frame_id_t *frame_id) {
     flag = true;
   }
   else {
-      frame_id = NULL;
+      frame_id = nullptr;
       flag = false;
   }
   return flag;
