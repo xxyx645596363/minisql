@@ -22,9 +22,12 @@ BufferPoolManager::~BufferPoolManager() {
 Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   // 1.     Search the page table for the requested page (P).
   // 1.1    If P exists, pin it and return it immediately.
+  
   auto iter =page_table_.find(page_id);
   if(iter != page_table_.end()){
+  cout<<"find it!!!!!!!!!!!!"<<endl;
     frame_id_t P=iter->second;
+  cout<<"page_id: "<<page_id<<" P: "<<P<<endl;
     pages_[P].pin_count_++;
     return &pages_[P];
   }
@@ -35,10 +38,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
     R = free_list_.back();
     free_list_.pop_back();
   }
-  else{
-    replacer_->Victim(&R);
-  }
-  if(free_list_.empty()&&replacer_->Size()==0) return nullptr;
+  else if(!replacer_->Victim(&R)) return nullptr;
   // 2.     If R is dirty, write it back to the disk.
   if(pages_[R].IsDirty()){
     FlushPage(pages_[R].page_id_);
@@ -59,7 +59,6 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
 
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   // 0.   Make sure you call AllocatePage!
-   page_id = AllocatePage();
    
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
   bool flag = true;
@@ -73,10 +72,11 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   if(!free_list_.empty()){
     P = free_list_.back();
     free_list_.pop_back();
-  }else{
-    replacer_->Victim(&P);
   }
+  else if(!replacer_->Victim(&P)) return nullptr;
+  page_id = AllocatePage();
   // 3.   Update P's metadata, zero out memory and add P to the page table.
+  page_table_.erase(pages_[P].page_id_);
   page_table_[page_id] = P;
   pages_[P].ResetMemory();
   pages_[P].pin_count_ = 0;
