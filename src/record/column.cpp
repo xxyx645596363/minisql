@@ -58,12 +58,13 @@ uint32_t Column::GetSerializedSize() const {
 }
 
 uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
-  if (column != nullptr) {
-    LOG(WARNING) << "Pointer to column is not null in column deserialize." << std::endl;
-  }
+  // if (column != nullptr) {
+  //   LOG(WARNING) << "Pointer to column is not null in column deserialize." << std::endl;
+  // }
 
   uint32_t column_len, column_index;
-  int column_type;
+  TypeId column_type;
+  int column_type_int;
   std::string column_name;
   bool column_nullable, column_unique;
 
@@ -73,8 +74,23 @@ uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
   column_name = MACH_READ_FROM(std::string, buf);//read the name of the field
   buf += sizeof(std::string);
 
-  column_type = MACH_READ_FROM(int, buf);//read the type
+  column_type_int = MACH_READ_FROM(int, buf);//read the type
   buf += sizeof(int);
+  switch (column_type_int)
+  {
+  case kTypeInvalid:
+    column_type = kTypeInvalid;
+    break;
+  case kTypeInt:
+    column_type = kTypeInt;
+    break;
+  case kTypeFloat:
+    column_type = kTypeFloat;
+    break;
+  default: 
+    column_type = kTypeChar;
+    break;
+  }
 
   column_len = MACH_READ_FROM(uint32_t, buf);//write the length 
   buf += sizeof(uint32_t);
@@ -97,7 +113,7 @@ uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
     column = ALLOC_P(heap, Column)(column_name, column_type, column_index, column_nullable, column_unique);
   }
 
-  return GetSerializedSize();
+  return static_cast<uint32_t>( 3 * sizeof(uint32_t) + sizeof(std::string) + sizeof(int) + 2 * sizeof(bool) );
 }
 
 //wsx_end

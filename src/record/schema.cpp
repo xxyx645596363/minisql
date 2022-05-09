@@ -11,7 +11,7 @@ uint32_t Schema::SerializeTo(char *buf) const {
   MACH_WRITE_TO(int, buf, columns_.size());//the number of column
   buf += sizeof(int);
 
-  for (int i = 0; i < columns_.size(); i++)
+  for (long unsigned int i = 0; i < columns_.size(); i++)
   {
     buf += columns_[i]->SerializeTo(buf);
   }
@@ -20,7 +20,7 @@ uint32_t Schema::SerializeTo(char *buf) const {
 }
 
 uint32_t Schema::GetSerializedSize() const {
-  return static_cast<uint32_t>( sizeof(uint32_t) + sizeof(int) + columns_.size() * Column::GetSerializedSize() );
+  return static_cast<uint32_t>( sizeof(uint32_t) + sizeof(int) + columns_.size() * columns_[0]->GetSerializedSize() );
 }
 
 uint32_t Schema::DeserializeFrom(char *buf, Schema *&schema, MemHeap *heap) {
@@ -46,7 +46,7 @@ uint32_t Schema::DeserializeFrom(char *buf, Schema *&schema, MemHeap *heap) {
   
   schema = ALLOC_P(heap, Schema)(columns);
 
-  return GetSerializedSize();
+  return static_cast<uint32_t>( sizeof(uint32_t) + sizeof(int) + schema->GetColumnCount() * schema->GetColumn(0)->GetSerializedSize() );
 }
 
 //wsx_end
