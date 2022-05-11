@@ -48,7 +48,8 @@ public:
 
   bool MarkDelete(const RowId &rid, Transaction *txn, LockManager *lock_manager, LogManager *log_manager);
 
-  bool UpdateTuple(const Row &new_row, Row *old_row, Schema *schema,
+  //0-fail;1-success;2-space not enough
+  int UpdateTuple(const Row &new_row, Row *old_row, Schema *schema,
                    Transaction *txn, LockManager *lock_manager, LogManager *log_manager);
 
   void ApplyDelete(const RowId &rid, Transaction *txn, LogManager *log_manager);
