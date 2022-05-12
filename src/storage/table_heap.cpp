@@ -58,10 +58,10 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
     return false;
   }
 
-  Row *old_row = new Row(rid);
-  if (!this_page->GetTuple(old_row, schema_, txn, lock_manager_)) return false;
+  Row old_row(rid);
+  if (!this_page->GetTuple(&old_row, schema_, txn, lock_manager_)) return false;
 
-  int update_ret = this_page->UpdateTuple(row, old_row, schema_, txn, lock_manager_, log_manager_);
+  int update_ret = this_page->UpdateTuple(row, &old_row, schema_, txn, lock_manager_, log_manager_);
   if (update_ret == 1) return true;
   else if (update_ret == 2)//current page is no enough for the new row, so we delete and insert again
   {
@@ -113,24 +113,24 @@ bool TableHeap::GetTuple(Row *row, Transaction *txn) {
 TableIterator TableHeap::Begin(Transaction *txn) {
   auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));//get first page
 
-  RowId *first_rid = new RowId;
-  while (!this_page->GetFirstTupleRid(first_rid))//if false, the page's record is delete all, then change to next page
+  RowId first_rid;
+  while (!this_page->GetFirstTupleRid(&first_rid))//if false, the page's record is delete all, then change to next page
   {
     page_id_t next_page_id = this_page->GetNextPageId();
     if (next_page_id == INVALID_PAGE_ID) return End();//find next page is invalid, return null
     this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(next_page_id));//get next page
   }
   
-  Row *first_row = new Row(*first_rid);
-  if (this_page->GetTuple(first_row, schema_, txn, lock_manager_))
-    return TableIterator(this, first_row);
+  Row first_row(first_rid);
+  if (this_page->GetTuple(&first_row, schema_, txn, lock_manager_))
+    return TableIterator(this, &first_row);
 
   return End();
 }
 
 TableIterator TableHeap::End() {
-  Row *end_row = new Row(INVALID_ROWID);
-  return TableIterator(this, end_row);
+  Row end_row(INVALID_ROWID);
+  return TableIterator(this, &end_row);
 }
 
 //wsx_end3

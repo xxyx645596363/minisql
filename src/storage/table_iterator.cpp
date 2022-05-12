@@ -53,11 +53,14 @@ TableIterator &TableIterator::operator++() {
   row_->SetRowId(*next_rid);
   bool updateRow_ret = this_page->GetTuple(row_, tableheap_->schema_, nullptr, tableheap_->lock_manager_);
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
+
+  delete next_rid;
+
   return *this;
 }
 
 TableIterator TableIterator::operator++(int) {
-  Row *old_row = new Row(*row_);
+  Row old_row(*row_);
 
   RowId this_rid = row_->GetRowId();
   page_id_t this_page_id = this_rid.GetPageId();
@@ -82,5 +85,7 @@ TableIterator TableIterator::operator++(int) {
   bool updateRow_ret = this_page->GetTuple(row_, tableheap_->schema_, nullptr, tableheap_->lock_manager_);
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
 
-  return TableIterator(tableheap_, old_row);
+  delete next_rid;
+
+  return TableIterator(tableheap_, &old_row);
 }
