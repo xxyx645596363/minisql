@@ -4,27 +4,29 @@
 
 bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   //check if some current pages are enough for the new row
-  for (page_id_t this_page_id = first_page_id_; this_page_id != INVALID_PAGE_ID; )
+  page_id_t this_page_id = first_page_id_;
+  for (; this_page_id != INVALID_PAGE_ID; )
   {
     auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
     if (this_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_)) return true;
-    this_page_id = this_page->GetNextPageId();
+    page_id_t next_page_id = this_page->GetNextPageId();
+    if (next_page_id == INVALID_PAGE_ID) break;
+    this_page_id = next_page_id;
   }
 
   //all current pages are not enough for the new row, so we need to create a new page and insert it into the double link list
   page_id_t new_page_id;
   auto new_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(new_page_id));
-  new_page->Init(new_page_id, INVALID_PAGE_ID, log_manager_, txn);
+  new_page->Init(new_page_id, this_page_id, log_manager_, txn);
   if (new_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
   {
     //insert it into the double link list
-      if (first_page_id_ != INVALID_PAGE_ID) {
-        auto first_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));
-        first_page->SetPrevPageId(new_page_id);
-      } 
-      new_page->SetNextPageId(first_page_id_);
-      first_page_id_ = new_page_id;
-      return true;
+    if (this_page_id != INVALID_PAGE_ID) {
+      auto end_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
+      end_page->SetNextPageId(new_page_id);
+    }
+    else  first_page_id_ = new_page_id; 
+    return true;
   }
   return false;
 }
@@ -56,15 +58,15 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
     return false;
   }
 
-  uint32_t this_slot_num = rid.GetSlotNum();
-  Row old_row;
-  old_row.DeserializeFrom(this_page->GetData() + this_page->GetTupleOffsetAtSlot(this_slot_num), Schema *schema);
+  Row *old_row = new Row(rid);
+  if (!this_page->GetTuple(old_row, schema_, txn, lock_manager_)) return false;
+
   int update_ret = this_page->UpdateTuple(row, old_row, schema_, txn, lock_manager_, log_manager_);
   if (update_ret == 1) return true;
   else if (update_ret == 2)//current page is no enough for the new row, so we delete and insert again
   {
     bool ret_delete = MarkDelete(rid, txn);
-    bool ret_insert = InsertTuple(row, txn);
+    bool ret_insert = InsertTuple(*(const_cast<Row *>(&row)), txn);
     return ret_delete && ret_insert;
   }
   else return false;
@@ -93,13 +95,14 @@ void TableHeap::RollbackDelete(const RowId &rid, Transaction *txn) {
 //wsx_start3
 
 void TableHeap::FreeHeap() {
-
+  delete schema_;
+  delete log_manager_;
+  delete lock_manager_;
+  delete buffer_pool_manager_;
 }
 
 bool TableHeap::GetTuple(Row *row, Transaction *txn) {
   RowId this_rid = row->GetRowId();
-  uint32_t this_slot_num = this_rid.GetSlotNum();
-  page_id_t this_page_id = this_rid.GetPageId();
 
   auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_rid.GetPageId()));
   if (this_page == nullptr) return false;
@@ -108,11 +111,26 @@ bool TableHeap::GetTuple(Row *row, Transaction *txn) {
 }
 
 TableIterator TableHeap::Begin(Transaction *txn) {
-  return TableIterator();
+  auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));//get first page
+
+  RowId *first_rid = new RowId;
+  while (!this_page->GetFirstTupleRid(first_rid))//if false, the page's record is delete all, then change to next page
+  {
+    page_id_t next_page_id = this_page->GetNextPageId();
+    if (next_page_id == INVALID_PAGE_ID) return End();//find next page is invalid, return null
+    this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(next_page_id));//get next page
+  }
+  
+  Row *first_row = new Row(*first_rid);
+  if (this_page->GetTuple(first_row, schema_, txn, lock_manager_))
+    return TableIterator(this, first_row);
+
+  return End();
 }
 
 TableIterator TableHeap::End() {
-  return TableIterator();
+  Row *end_row = new Row(INVALID_ROWID);
+  return TableIterator(this, end_row);
 }
 
 //wsx_end3

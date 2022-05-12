@@ -25,9 +25,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
   
   auto iter =page_table_.find(page_id);
   if(iter != page_table_.end()){
-  cout<<"find it!!!!!!!!!!!!"<<endl;
     frame_id_t P=iter->second;
-  cout<<"page_id: "<<page_id<<" P: "<<P<<endl;
     pages_[P].pin_count_++;
     return &pages_[P];
   }

@@ -102,7 +102,9 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
-    ASSERT(false, "Not implemented yet.");
+    auto first_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(first_page_id_));
+    first_page->Init(first_page_id_, INVALID_PAGE_ID, log_manager_, txn);
+    first_page->SetNextPageId(INVALID_PAGE_ID);
   };
 
   /**
