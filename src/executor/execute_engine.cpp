@@ -316,6 +316,10 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
+  //获取当前数据库
+  DBStorageEngine *now_dbs = dbs_.at(current_db_);
+
+  
   return DB_FAILED;
 }
 
