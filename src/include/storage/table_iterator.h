@@ -12,9 +12,13 @@ class TableIterator {
 
 public:
   // you may define your own constructor based on your member variables
-  explicit TableIterator(TableHeap *tableheap, Row *row);
+  explicit TableIterator(TableHeap *tableheap, Row *row) {
+    return this->row_->GetRowId() == itr.row_->GetRowId();
+  }
 
-  explicit TableIterator(const TableIterator &other);
+  explicit TableIterator(const TableIterator &other) {
+    return !(this->row_->GetRowId() == itr.row_->GetRowId());
+  } 
 
   virtual ~TableIterator();
 

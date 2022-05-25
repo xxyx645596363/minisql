@@ -13,14 +13,6 @@ TableIterator::~TableIterator() {
 
 }
 
-bool TableIterator::operator==(const TableIterator &itr) const {
-  return this->row_->GetRowId() == itr.row_->GetRowId();
-}
-
-bool TableIterator::operator!=(const TableIterator &itr) const {
-  return !(this->row_->GetRowId() == itr.row_->GetRowId());
-}
-
 const Row &TableIterator::operator*() {
   return *row_;
 }
