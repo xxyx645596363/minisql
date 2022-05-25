@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <ctime>
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
 #include "parser/syntax_tree_printer.h"
@@ -62,15 +63,23 @@ int main(int argc, char **argv) {
       // error
       printf("%s\n", MinisqlParserGetErrorMessage());
     } else {
-#ifdef ENABLE_PARSER_DEBUG
+//#ifdef ENABLE_PARSER_DEBUG
       printf("[INFO] Sql syntax parse ok!\n");
       SyntaxTreePrinter printer(MinisqlGetParserRootNode());
       printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
-#endif
+//#endif
     }
+
+    //添加计时模块：
+    clock_t start_time = clock();
 
     ExecuteContext context;
     engine.Execute(MinisqlGetParserRootNode(), &context);
+
+    clock_t end_time = clock();
+    double execute_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    cout << "EXECUTE TIME: " << execute_time << endl;
+
     sleep(1);
 
     // clean memory after parse

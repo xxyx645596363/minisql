@@ -16,14 +16,19 @@ bool BitmapPage<PageSize>::AllocatePage(uint32_t &page_offset) {
 
     page_allocated_++;//the number of pages allocated + 1
     next_free_page_++;
+    if(IsPageFree(next_free_page_)) return true;
     if (page_allocated_ < MaxSupportedSize)//if no more free page, then no need to update the next free page because it doesn't exsit
     {
-      for (int i = next_free_page_; ;i = (i + 1) % MaxSupportedSize)//loop for finding the next free page
+      for (int i = next_free_page_ / 8; ;i = (i + 1) % (MaxSupportedSize / 8))//loop for finding the next free page
       {
-        if ( !( bytes[i / 8] & ( 1 << ( i % 8 ) ) ) )//check if the page is free by checking if its bit is 0 
+        if (bytes[i] == 255) continue;
+        for (int j = i * 8; j < i * 8 + 8; j++)
         {
-          next_free_page_ = i;//update the new free page
-          break;
+          if (IsPageFree(j))
+          {
+            next_free_page_ = j;
+            return true;
+          }
         }
       }
     }

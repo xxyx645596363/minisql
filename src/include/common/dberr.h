@@ -3,6 +3,7 @@
 
 enum dberr_t {
   DB_SUCCESS = 0,
+  DB_NOT_EXIST,
   DB_FAILED,
   DB_TABLE_ALREADY_EXIST,
   DB_TABLE_NOT_EXIST,
