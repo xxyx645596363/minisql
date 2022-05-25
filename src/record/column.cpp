@@ -71,7 +71,7 @@ uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
   ASSERT(MACH_READ_FROM(uint32_t, buf) == COLUMN_MAGIC_NUM, "Wrong for MAGIC_NUM.");//check magic_num
   buf += sizeof(uint32_t);//update the buf
 
-  column_name = MACH_READ_FROM(std::string, buf);//read the name of the field
+  column_name = buf;//read the name of the field
   buf += sizeof(std::string);
 
   column_type_int = MACH_READ_FROM(int, buf);//read the type
