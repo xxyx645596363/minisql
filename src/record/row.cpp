@@ -3,12 +3,6 @@
 //wsx_start
 
 uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
-  //get the data of rid
-  int64_t rid_data = rid_.Get();
-  //write the data of rid
-  MACH_WRITE_TO(int64_t, buf, rid_data);
-  buf += sizeof(int64_t);
-
   //write the number of field
   int64_t field_num = fields_.size();
   MACH_WRITE_TO(int64_t, buf, field_num);
@@ -35,11 +29,6 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
 }
 
 uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
-  //read the data of rid
-  int64_t rid_data = MACH_READ_FROM(int64_t, buf);
-  buf += sizeof(int64_t);
-  rid_ = RowId(rid_data);
-  
   //read the data of header of the row
   int64_t field_num = MACH_READ_FROM(int64_t, buf);
   buf += sizeof(int64_t);
@@ -58,7 +47,7 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
 }
 
 uint32_t Row::GetSerializedSize(Schema *schema) const {
-  uint32_t buf_add = 3 * sizeof(int64_t);
+  uint32_t buf_add = 2 * sizeof(int64_t);
   int64_t field_num = fields_.size();
   for (int64_t i = 0; i < field_num; i++)
   {
