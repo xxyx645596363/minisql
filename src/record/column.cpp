@@ -32,8 +32,10 @@ uint32_t Column::SerializeTo(char *buf) const {
   MACH_WRITE_UINT32(buf, COLUMN_MAGIC_NUM);//write magic_num
   buf += sizeof(uint32_t);//update the buf
 
+  MACH_WRITE_UINT32(buf, name_.length());//序列化name_的长度
+  buf += sizeof(uint32_t);
   MACH_WRITE_STRING(buf, name_);//write the name of the field
-  buf += sizeof(std::string);
+  buf += name_.length();
 
   MACH_WRITE_INT32(buf, type_);//write TypeId
   buf += sizeof(int);
@@ -54,7 +56,7 @@ uint32_t Column::SerializeTo(char *buf) const {
 }
 
 uint32_t Column::GetSerializedSize() const {
-  return static_cast<uint32_t>( 3 * sizeof(uint32_t) + sizeof(std::string) + sizeof(int) + 2 * sizeof(bool) );
+  return static_cast<uint32_t>( 4 * sizeof(uint32_t) + name_.length() + sizeof(int) + 2 * sizeof(bool) );
 }
 
 uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
@@ -62,17 +64,18 @@ uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
   //   LOG(WARNING) << "Pointer to column is not null in column deserialize." << std::endl;
   // }
 
-  uint32_t column_len, column_index;
+  uint32_t column_len, column_index, name_len;
   TypeId column_type;
   int column_type_int;
-  std::string column_name;
   bool column_nullable, column_unique;
 
   ASSERT(MACH_READ_FROM(uint32_t, buf) == COLUMN_MAGIC_NUM, "Wrong for MAGIC_NUM.");//check magic_num
   buf += sizeof(uint32_t);//update the buf
 
-  column_name = MACH_READ_FROM(std::string, buf);//read the name of the field
-  buf += sizeof(std::string);
+  name_len = MACH_READ_FROM(uint32_t, buf);
+  buf += sizeof(uint32_t);
+  std::string column_name(buf, name_len);//read the name of the field
+  buf += name_len;
 
   column_type_int = MACH_READ_FROM(int, buf);//read the type
   buf += sizeof(int);

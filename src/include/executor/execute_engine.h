@@ -3,6 +3,8 @@
 
 #include <string>
 #include <unordered_map>
+#include <iomanip>
+#include <stdlib.h>
 #include "common/dberr.h"
 #include "common/instance.h"
 #include "transaction/transaction.h"
@@ -10,6 +12,8 @@
 extern "C" {
 #include "parser/parser.h"
 };
+
+using namespace std;
 
 /**
  * ExecuteContext stores all the context necessary to run in the execute engine
@@ -83,5 +87,18 @@ private:
   [[maybe_unused]] std::unordered_map<std::string, DBStorageEngine *> dbs_;  /** all opened databases */
   [[maybe_unused]] std::string current_db_;  /** current database */
 };
+
+struct SelectCondition
+{
+  string attri_name;
+  uint32_t type_;//0等于；1不等于；2小于；3大于；4小于等于；5大于等于
+  TypeId type_id_;
+  union Val {
+    float float_;
+    int int_;
+    char *chars_;
+  } value_;
+};
+
 
 #endif //MINISQL_EXECUTE_ENGINE_H
