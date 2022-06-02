@@ -77,7 +77,7 @@ Page *BufferPoolManager::NewPage(page_id_t &page_id) {
   page_table_.erase(pages_[P].page_id_);
   page_table_[page_id] = P;
   pages_[P].ResetMemory();
-  pages_[P].pin_count_ = 0;
+  pages_[P].pin_count_ = 1;//wsx change 0->1
   pages_[P].is_dirty_ = true;
   // 4.   Set the page ID output parameter. Return a pointer to P.
   pages_[P].page_id_ = page_id;

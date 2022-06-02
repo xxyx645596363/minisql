@@ -8,8 +8,13 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   for (; this_page_id != INVALID_PAGE_ID; )
   {
     auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
-    if (this_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_)) return true;
+    if (this_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
+    {
+      buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
+      return true;
+    }
     page_id_t next_page_id = this_page->GetNextPageId();
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
     if (next_page_id == INVALID_PAGE_ID) break;
     this_page_id = next_page_id;
   }
@@ -24,10 +29,13 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
     if (this_page_id != INVALID_PAGE_ID) {
       auto end_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
       end_page->SetNextPageId(new_page_id);
+      buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
     }
     else  first_page_id_ = new_page_id; 
+    buffer_pool_manager_->UnpinPage(new_page_id, true);//将该页unpin
     return true;
   }
+  buffer_pool_manager_->UnpinPage(new_page_id, false);//将该页unpin
   return false;
 }
 
@@ -52,24 +60,39 @@ bool TableHeap::MarkDelete(const RowId &rid, Transaction *txn) {
 
 bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) {
   // Find the page which contains the tuple.
-  auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(rid.GetPageId()));
+  page_id_t this_page_id = rid.GetPageId();
+  auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
   // If the page could not be found, return false
   if (this_page == nullptr) {
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
     return false;
   }
 
   Row old_row(rid);
-  if (!this_page->GetTuple(&old_row, schema_, txn, lock_manager_)) return false;
+  if (!this_page->GetTuple(&old_row, schema_, txn, lock_manager_))
+  {
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+    return false;
+  }
 
   int update_ret = this_page->UpdateTuple(row, &old_row, schema_, txn, lock_manager_, log_manager_);
-  if (update_ret == 1) return true;
+  if (update_ret == 1)
+  {
+    buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
+    return true;
+  } 
   else if (update_ret == 2)//current page is no enough for the new row, so we delete and insert again
   {
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
     bool ret_delete = MarkDelete(rid, txn);
     bool ret_insert = InsertTuple(*(const_cast<Row *>(&row)), txn);
     return ret_delete && ret_insert;
   }
-  else return false;
+  else
+  {
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+    return false;
+  } 
 }
 
 void TableHeap::ApplyDelete(const RowId &rid, Transaction *txn) {
@@ -77,6 +100,7 @@ void TableHeap::ApplyDelete(const RowId &rid, Transaction *txn) {
    auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(rid.GetPageId()));
   // Step2: Delete the tuple from the page.
   this_page->ApplyDelete(rid, txn, log_manager_);
+  buffer_pool_manager_->UnpinPage(rid.GetPageId(), true);//将该页unpin
 }
 
 //wsx_end2
@@ -105,26 +129,34 @@ bool TableHeap::GetTuple(Row *row, Transaction *txn) {
   RowId this_rid = row->GetRowId();
 
   auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_rid.GetPageId()));
+  buffer_pool_manager_->UnpinPage(this_rid.GetPageId(), false);//将该页unpin
   if (this_page == nullptr) return false;
-
   return this_page->GetTuple(row, schema_, txn, lock_manager_);
 }
 
 TableIterator TableHeap::Begin(Transaction *txn) {
-  auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));//get first page
 
   RowId first_rid;
+  page_id_t this_page_id = first_page_id_;
+  auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));//get first page
   while (!this_page->GetFirstTupleRid(&first_rid))//if false, the page's record is delete all, then change to next page
   {
-    page_id_t next_page_id = this_page->GetNextPageId();
-    if (next_page_id == INVALID_PAGE_ID) return End();//find next page is invalid, return null
-    this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(next_page_id));//get next page
+    this_page_id = this_page->GetNextPageId();
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+    if (this_page_id == INVALID_PAGE_ID)
+    {
+      return End();//find next page is invalid, return null
+    } 
+    this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));//get next page
   }
   
   Row first_row(first_rid);
   if (this_page->GetTuple(&first_row, schema_, txn, lock_manager_))
+  {
+    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
     return TableIterator(this, &first_row);
-
+  }
+  buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
   return End();
 }
 
