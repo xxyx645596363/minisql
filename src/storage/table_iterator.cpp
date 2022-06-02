@@ -32,7 +32,7 @@ TableIterator &TableIterator::operator++() {
     do
     {
       page_id_t next_page_id = this_page->GetNextPageId();
-      buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+      tableheap_->buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
       this_page_id = next_page_id;
       if (this_page_id == INVALID_PAGE_ID) //find next page is invalid, so is the end
       {
@@ -49,7 +49,7 @@ TableIterator &TableIterator::operator++() {
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
 
   delete next_rid;
-  buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+  tableheap_->buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
   return *this;
 }
 
@@ -66,7 +66,7 @@ TableIterator TableIterator::operator++(int) {
     do
     {
       page_id_t next_page_id = this_page->GetNextPageId();
-      buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+      tableheap_->buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
       this_page_id = next_page_id;
       if (this_page_id == INVALID_PAGE_ID) //find next page is invalid, so is the end
       {
@@ -82,6 +82,6 @@ TableIterator TableIterator::operator++(int) {
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
 
   delete next_rid;
-  buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+  tableheap_->buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
   return TableIterator(tableheap_, &old_row);
 }
