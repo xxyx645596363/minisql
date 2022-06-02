@@ -498,6 +498,56 @@ bool checkIndexSameWithCondition(const IndexInfo *index, const SelectCondition *
 
 }
 
+dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo)
+{
+  //利用condition的attribute构造一个"row",将row序列化为keytype用于索引:
+  //首先构造用于构造row的field_vector,因为只考虑单属性索引，索引这里的vector里面只有一个：
+  vector<Field> fields;
+  switch (condition->type_id_)
+  {
+  case kTypeInt:
+    fields.push_back(Field(kTypeInt, condition->value_.int_));
+    break;
+  case kTypeFloat:
+    fields.push_back(Field(kTypeFloat, condition->value_.float_));
+    break;
+  case kTypeChar:
+    fields.push_back(Field(kTypeChar, condition->value_.chars_, strlen(condition->value_.chars_), true));
+    break;
+  default:
+    return DB_FAILED;
+    break;
+  }
+  //构建row:
+  Row key_row(fields);
+  
+
+  switch (condition->type_)
+  {
+  case 0://=
+    
+    break;
+  case 1://!=
+    
+    break;
+  case 2://<
+    
+    break;
+  case 3://>
+    
+    break;
+  case 4://<=
+    
+    break;
+  case 5://>=
+    
+    break;
+
+  default:
+    break;
+  }
+}
+
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
@@ -560,7 +610,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       {
         if (checkIndexSameWithCondition(indexes[i], select_conditions[0]))//索引和where中条件相吻合
         {
-          
+          selectWithIndex(select_conditions[0], indexes[i]);
           break;
         }
       }
