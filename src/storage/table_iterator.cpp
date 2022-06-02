@@ -32,12 +32,14 @@ TableIterator &TableIterator::operator++() {
     do
     {
       page_id_t next_page_id = this_page->GetNextPageId();
-      if (next_page_id == INVALID_PAGE_ID) //find next page is invalid, so is the end
+      buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+      this_page_id = next_page_id;
+      if (this_page_id == INVALID_PAGE_ID) //find next page is invalid, so is the end
       {
         row_->SetRowId(INVALID_ROWID);
         return *this;
       }
-      this_page = reinterpret_cast<TablePage *>(tableheap_->buffer_pool_manager_->FetchPage(next_page_id));//get next page
+      this_page = reinterpret_cast<TablePage *>(tableheap_->buffer_pool_manager_->FetchPage(this_page_id));//get next page
     } while (!this_page->GetFirstTupleRid(next_rid));//if false, means this page is deleted all, so go next
   }
 
@@ -47,7 +49,7 @@ TableIterator &TableIterator::operator++() {
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
 
   delete next_rid;
-
+  buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
   return *this;
 }
 
@@ -64,11 +66,13 @@ TableIterator TableIterator::operator++(int) {
     do
     {
       page_id_t next_page_id = this_page->GetNextPageId();
-      if (next_page_id == INVALID_PAGE_ID) //find next page is invalid, so is the end
+      buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+      this_page_id = next_page_id;
+      if (this_page_id == INVALID_PAGE_ID) //find next page is invalid, so is the end
       {
         row_->SetRowId(INVALID_ROWID);
       }
-      this_page = reinterpret_cast<TablePage *>(tableheap_->buffer_pool_manager_->FetchPage(next_page_id));//get next page
+      this_page = reinterpret_cast<TablePage *>(tableheap_->buffer_pool_manager_->FetchPage(this_page_id));//get next page
     } while (!this_page->GetFirstTupleRid(next_rid));//if false, means this page is deleted all, so go next
   }
 
@@ -78,6 +82,6 @@ TableIterator TableIterator::operator++(int) {
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
 
   delete next_rid;
-
+  buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
   return TableIterator(tableheap_, &old_row);
 }
