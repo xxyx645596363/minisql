@@ -18,6 +18,15 @@ TEST(BPlusTreeTests, IndexIteratorTest) {
     tree.Remove(i);
   }
   // Search keys
+
+
+  /*vector<int> an;
+  for (int i = 1; i <= 50; i++) {
+    tree.GetValue(i, an);
+    printf("no. %2d = %4d\n", i, an[an.size() - 1]);
+  }*/
+
+
   vector<int> v;
   for (int i = 2; i <= 50; i += 2) {
     ASSERT_FALSE(tree.GetValue(i, v));
