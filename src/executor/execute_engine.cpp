@@ -507,7 +507,7 @@ bool checkIndexSameWithCondition(const IndexInfo *index, const SelectCondition *
 
 }
 
-dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo)
+dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const std::vector<std::string> col_names, const bool allCol)
 {
   //利用condition的attribute构造一个"row",将row序列化为keytype用于索引:
   //首先构造用于构造row的field_vector,因为只考虑单属性索引，索引这里的vector里面只有一个：
@@ -527,20 +527,36 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo)
     return DB_FAILED;
     break;
   }
+
+  //获取schema
+  Schema *schema = indexinfo->GetIndexKeySchema();
+
   //构建row和GenericKey,默认用64的大小,从而获取相应的迭代器:
   Row key_row(fields);
   GenericKey<64> genekey;
-  genekey.SerializeFromKey(key_row, indexinfo->key_schema_);
+  genekey.SerializeFromKey(key_row, schema);
   auto key_iter = indexinfo->index_->GetBeginIterator(genekey);
 
+  //获取table_heap:
+  TableHeap *table_heap = indexinfo->GetTableInfo()->GetTableHeap();  
+
   //根据条件不同执行结果
+  //printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   switch (condition->type_)
   {
   case 0://=
+    //获取rowid:
+    MappingType keypair = *key_iter;//MappingType std::pair<KeyType, ValueType>
+    RowId rid = keypair.second;
     
-    break;
-  case 1://!=
-    
+    //获取row并输出:
+    Row row(rid);
+    bool gettuple_ret = table_heap->GetTuple(&row, nullptr);
+    if (!gettuple_ret)  std::cout << std::endl;
+    else
+    {
+      printRow(row, col_names, allCol, schema);
+    }
     break;
   case 2://<
     
@@ -622,7 +638,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       {
         if (checkIndexSameWithCondition(indexes[i], select_conditions[0]))//索引和where中条件相吻合
         {
-          return selectWithIndex(select_conditions[0], indexes[i]);
+          return selectWithIndex(select_conditions[0], indexes[i], col_names, allCol);
         }
       }
       //没有索引
