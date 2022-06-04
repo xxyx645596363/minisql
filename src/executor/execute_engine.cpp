@@ -175,15 +175,17 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   std::string new_table_name = ast->child_->val_;
 
   //获取列信息
-  //获取主键列，存到set中
+  //获取主键列，存到set和vector中
   if (ast->child_->next_->type_ != kNodeColumnDefinitionList) return DB_FAILED;//检查语义
   std::set<char *> prim_set;
+  std::vector<string> prim_vec;
   pSyntaxNode prim_node = ast->child_->next_->child_;
   while ((prim_node->type_ != kNodeColumnList || prim_node->val_[0] != 'p') && (prim_node != nullptr)) prim_node = col_node->next_;//定位存储主键的子树
   if (prim_node == nullptr || prim_node->type_ != kNodeColumnList) return DB_FAILED;
   for (pSyntaxNode node = prim_node->child_; node != nullptr; node = node->next_)
   {
     prim_set.insert(node->val_);
+    prim_vec.push_back(std::string(node->val_));
   }  
   //获取列的其他信息，存进vector
   std::vector<Column *> columns;
@@ -241,8 +243,15 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
 
   //调用CatalogManager的CreateTable函数为数据库创建新的表
   dberr_t createtable_ret = now_dbs->catalog_mgr_->CreateTable(new_table_name, new_Schema, nullptr, new_tableinfo);
+  
+  //为表的主键自动创建索引：
+  IndexInfo *index_info = new IndexInfo();//创建一个IndexInfo用于引用返回
+  dberr_t createindex_ret = now_dbs->catalog_mgr_->CreateIndex(new_table_name, "primary_key", prim_vec, nullptr, index_info);
+  
   //返回创建结果
-  return createtable_ret;
+  if (createtable_ret == DB_SUCCESS && createindex_ret == DB_SUCCESS)
+    return DB_SUCCESS;
+  else return DB_FAILED;
 }
 
 
@@ -518,10 +527,13 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo)
     return DB_FAILED;
     break;
   }
-  //构建row:
+  //构建row和GenericKey,默认用64的大小,从而获取相应的迭代器:
   Row key_row(fields);
-  
+  GenericKey<64> genekey;
+  genekey.SerializeFromKey(key_row, indexinfo->key_schema_);
+  auto key_iter = indexinfo->index_->GetBeginIterator(genekey);
 
+  //根据条件不同执行结果
   switch (condition->type_)
   {
   case 0://=
@@ -610,10 +622,10 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       {
         if (checkIndexSameWithCondition(indexes[i], select_conditions[0]))//索引和where中条件相吻合
         {
-          selectWithIndex(select_conditions[0], indexes[i]);
-          break;
+          return selectWithIndex(select_conditions[0], indexes[i]);
         }
       }
+      //没有索引
     }
   }
   else return DB_FAILED;//检查语义
