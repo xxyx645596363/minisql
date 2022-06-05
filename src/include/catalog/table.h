@@ -18,7 +18,7 @@ public:
   static uint32_t DeserializeFrom(char *buf, TableMetadata *&table_meta, MemHeap *heap);
 
   static TableMetadata *Create(table_id_t table_id, std::string table_name,
-                               page_id_t root_page_id, TableSchema *schema, MemHeap *heap);
+                               page_id_t root_page_id, TableSchema *schema, MemHeap *heap, uint32_t prim_idx);
 
   inline table_id_t GetTableId() const { return table_id_; }
 
