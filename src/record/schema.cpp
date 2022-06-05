@@ -11,7 +11,6 @@ uint32_t Schema::SerializeTo(char *buf) const {
   
   MACH_WRITE_TO(int, buf, columns_.size());//the number of column
   buf += sizeof(int);
-
   for (long unsigned int i = 0; i < columns_.size(); i++)
   {
     buf += columns_[i]->SerializeTo(buf);
@@ -37,12 +36,10 @@ uint32_t Schema::DeserializeFrom(char *buf, Schema *&schema, MemHeap *heap) {
 
   n_column = MACH_READ_FROM(int, buf);
   buf += sizeof(int);
-
   for (int i = 0; i < n_column; i++)
   {
     Column * new_column;
     buf += Column::DeserializeFrom(buf, new_column, heap);
-    std::cout<<new_column->GetName()<<std::endl;
     columns.push_back(new_column);
   }
   

@@ -47,6 +47,7 @@ TEST(CatalogTest, CatalogTableTest) {
   std::vector<Column *> columns = {
           ALLOC_COLUMN(heap)("id", TypeId::kTypeInt, 0, false, false),
           ALLOC_COLUMN(heap)("name", TypeId::kTypeChar, 64, 1, true, false),
+          // ALLOC_COLUMN(heap)("hometown", TypeId::kTypeChar, 64, 1, true, false),
           ALLOC_COLUMN(heap)("account", TypeId::kTypeFloat, 2, true, false)
   };
   auto schema = std::make_shared<Schema>(columns);
@@ -60,7 +61,6 @@ TEST(CatalogTest, CatalogTableTest) {
   ASSERT_TRUE(table_heap != nullptr);
   delete db_01;
   /** Stage 2: Testing catalog loading */
-  puts("stage 2");
   auto db_02 = new DBStorageEngine(db_file_name, false);
   auto &catalog_02 = db_02->catalog_mgr_;
   TableInfo *table_info_03 = nullptr;

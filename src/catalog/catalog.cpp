@@ -309,9 +309,6 @@ dberr_t CatalogManager::LoadTable(const table_id_t table_id, const page_id_t pag
   char * buf = buffer_pool_manager_->FetchPage(page_id)->GetData();
   buf += TableMetadata::DeserializeFrom(buf, table_meta, table_info->GetMemHeap());
   buffer_pool_manager_->UnpinPage(page_id, false);
-printf("Load table schema size %d\n",table_info->GetSchema() ->GetColumnCount());
-cout<<"Load table schema 0 named "<<table_info->GetSchema() ->GetColumn(0)->GetName()<<" "<<table_info->GetSchema()->GetColumn(0)->GetLength()<<endl;
-
   string table_name = table_meta->GetTableName();
   table_names_[table_name] = table_id;
 

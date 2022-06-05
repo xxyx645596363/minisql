@@ -55,23 +55,14 @@ uint32_t TableMetadata::DeserializeFrom(char *buf, TableMetadata *&table_meta, M
   buf += sizeof(uint32_t);
   std::string table_name(buf, name_len);
   buf += name_len;
-  cout<<"table name = "<<table_name<<endl;
   root_page_id = MACH_READ_FROM(uint32_t, buf);
   buf += sizeof(uint32_t);
 
   buf += Schema::DeserializeFrom(buf, schema, heap);
-cout<<"schema size = "<<schema->GetColumnCount()<<endl;
-cout<<schema->GetColumn(0)->GetName();
-cout<<" "<<schema->GetColumn(0)->GetLength()<<endl;
-
   prim_idx = MACH_READ_FROM(uint32_t, buf);
   buf += sizeof(uint32_t);
 
   table_meta = ALLOC_P(heap,TableMetadata)(table_id, table_name, root_page_id, schema, prim_idx);
-printf("de table schema size %d\n",table_meta->GetSchema() ->GetColumnCount());
-cout<<"de table schema 0 named ";
-cout<<table_meta->GetSchema() ->GetColumn(0)->GetName();
-cout<<" "<<table_meta->GetSchema()->GetColumn(0)->GetLength()<<endl;
 
   return static_cast<uint32_t>( sizeof(uint32_t)*4 + \
   sizeof(std::string) +  schema->GetSerializedSize() );
