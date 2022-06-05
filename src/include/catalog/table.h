@@ -28,11 +28,12 @@ public:
 
   inline Schema *GetSchema() const { return schema_; }
 
+  inline uint32_t GetPrimIdx() const { return prim_idx_; }
 
 private:
   TableMetadata() = delete;
 
-  TableMetadata(table_id_t table_id, std::string table_name, page_id_t root_page_id, TableSchema *schema);
+  TableMetadata(table_id_t table_id, std::string table_name, page_id_t root_page_id, TableSchema *schema, uint32_t prim_idx);
 
 private:
   static constexpr uint32_t TABLE_METADATA_MAGIC_NUM = 344528;
@@ -40,6 +41,7 @@ private:
   std::string table_name_;
   page_id_t root_page_id_;
   Schema *schema_;
+  uint32_t prim_idx_;
 };
 
 /**
