@@ -14,7 +14,14 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
           leaf_max_size_(leaf_max_size),
           internal_max_size_(internal_max_size) {
   root_page_id_ = INVALID_PAGE_ID;
-  
+  IndexRootsPage *page = reinterpret_cast<IndexRootsPage *>(buffer_pool_manager_->FetchPage(index_id)->GetData());
+  if (page != nullptr) {
+    page_id_t oldroot = INVALID_PAGE_ID;
+    if(page->GetRootId(index_id, &oldroot)){
+      root_page_id_ = oldroot;
+    }
+  }
+  buffer_pool_manager_->UnpinPage(index_id, true);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
