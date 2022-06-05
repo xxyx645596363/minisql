@@ -161,8 +161,10 @@ TableIterator TableHeap::Begin(Transaction *txn) {
 }
 
 TableIterator TableHeap::End() {
-  Row end_row(INVALID_ROWID);
-  return TableIterator(this, &end_row);
+  // Row end_row(INVALID_ROWID);
+  // return TableIterator(this, &end_row);
+  Row *end_row = new Row(INVALID_ROWID);
+  return TableIterator(this, end_row);
 }
 
 //wsx_end3
