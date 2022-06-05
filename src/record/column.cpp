@@ -116,7 +116,7 @@ uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
     column = ALLOC_P(heap, Column)(column_name, column_type, column_index, column_nullable, column_unique);
   }
 
-  return static_cast<uint32_t>( 3 * sizeof(uint32_t) + sizeof(std::string) + sizeof(int) + 2 * sizeof(bool) );
+  return static_cast<uint32_t>( 4 * sizeof(uint32_t) + name_len + sizeof(int) + 2 * sizeof(bool) );
 }
 
 //wsx_end
