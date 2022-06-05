@@ -11,6 +11,8 @@ public:
   // you may define your own constructor based on your member variables
   explicit IndexIterator();
 
+  explicit IndexIterator(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *leaf_page, BufferPoolManager *buffer_pool_manager, int index);
+
   ~IndexIterator();
 
   /** Return the key/value pair this iterator is currently pointing at. */
@@ -27,6 +29,9 @@ public:
 
 private:
   // add your own private member variables here
+  BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *leaf_;
+  BufferPoolManager *buffer_pool_manager_;
+  int index_;
 };
 
 

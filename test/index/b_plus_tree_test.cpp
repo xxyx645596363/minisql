@@ -43,6 +43,7 @@ TEST(BPlusTreeTests, SampleTest) {
   vector<int> ans;
   for (int i = 0; i < n; i++) {
     tree.GetValue(i, ans);
+    //printf("no. %2d = %4d yes. %2d = %4d\n", i, ans[i], i, kv_map[i]);
     ASSERT_EQ(kv_map[i], ans[i]);
   }
   ASSERT_TRUE(tree.Check());
@@ -54,10 +55,13 @@ TEST(BPlusTreeTests, SampleTest) {
   // Check valid
   ans.clear();
   for (int i = 0; i < n / 2; i++) {
+    //printf("%d\n",tree.GetValue(delete_seq[i], ans));
     ASSERT_FALSE(tree.GetValue(delete_seq[i], ans));
   }
   for (int i = n / 2; i < n; i++) {
+    //printf("%d\n",tree.GetValue(delete_seq[i], ans));
     ASSERT_TRUE(tree.GetValue(delete_seq[i], ans));
+    //printf("no. %2d = %4d yes. %2d = %4d\n", i, kv_map[delete_seq[i]], i, ans[ans.size() - 1]);
     ASSERT_EQ(kv_map[delete_seq[i]], ans[ans.size() - 1]);
   }
 }
