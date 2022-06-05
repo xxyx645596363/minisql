@@ -26,6 +26,8 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
 
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Destroy() {
+  buffer_pool_manager_->DeletePage(root_page_id_);
+  root_page_id_ = INVALID_PAGE_ID;
 }
 
 /*
