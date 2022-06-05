@@ -146,6 +146,7 @@ N *BPLUSTREE_TYPE::Split(N *node) {
     reinterpret_cast<InternalPage *>(new_node)->Init(new_page_id, node->GetParentPageId(), internal_max_size_);
     reinterpret_cast<InternalPage *>(node)->MoveHalfTo(reinterpret_cast<InternalPage *>(new_node), buffer_pool_manager_);
   }
+  buffer_pool_manager_->UnpinPage(new_page_id, true);
   return new_node;
 }
 
@@ -204,6 +205,7 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  //printf("into f remove\n");
   if(IsEmpty()) return;
   auto leaf_page = FindLeafPage(key, false);
   B_PLUS_TREE_LEAF_PAGE_TYPE *leaf = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(leaf_page);
@@ -320,82 +322,45 @@ bool BPLUSTREE_TYPE::Coalesce(N **neighbor_node, N **node,
 INDEX_TEMPLATE_ARGUMENTS
 template<typename N>
 void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {
-  if(index == 0){
-    if(node->IsLeafPage()){
-      LeafPage* now = reinterpret_cast<LeafPage *>(node);
-      LeafPage* nei = reinterpret_cast<LeafPage *>(neighbor_node);
-
-      auto pre_middle = FindLeafPage(now->KeyAt(now->GetSize() - 1), false);
-      auto middle_leaf = reinterpret_cast<LeafPage *>(pre_middle);
-      auto middle_leaf_page = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_leaf->GetNextPageId())->GetData());
-      auto middle_key_leaf = reinterpret_cast<LeafPage *>(middle_leaf_page);
-      auto aft_middle = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_key_leaf->GetNextPageId())->GetData());
-      InternalPage *parent = reinterpret_cast<InternalPage *>(reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(neighbor_node->GetParentPageId())->GetData()));
-      int neighbor_index = parent->ValueIndex(neighbor_node->GetPageId());
-      parent->SetKeyAt(neighbor_index, reinterpret_cast<LeafPage *>(aft_middle)->KeyAt(0));
-      nei->MoveFirstToEndOf(now);
-      buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
-      buffer_pool_manager_->UnpinPage(middle_leaf_page->GetPageId(), false);
-      buffer_pool_manager_->UnpinPage(aft_middle->GetPageId(), false);
-    }
+  auto *page = buffer_pool_manager_->FetchPage(node->GetParentPageId());
+  if(page == nullptr) return;
+  InternalPage *parent = reinterpret_cast<InternalPage *>(page->GetData());
+  int setindex;
+  if(node->IsLeafPage()){
+    LeafPage* leaf_node = reinterpret_cast<LeafPage*>(node);
+    LeafPage* leaf_neighbor = reinterpret_cast<LeafPage*>(neighbor_node);
+    if(index){
+      setindex = parent->ValueIndex(leaf_node->GetPageId());
+      leaf_neighbor->MoveLastToFrontOf(leaf_node);
+      parent->SetKeyAt(setindex, leaf_node->KeyAt(0));
+    } 
     else{
-      InternalPage* now = reinterpret_cast<InternalPage *>(node);
-      InternalPage* nei = reinterpret_cast<InternalPage *>(neighbor_node);
-
-      auto pre_middle = FindLeafPage(now->KeyAt(now->GetSize() - 1), false);
-      auto middle_leaf = reinterpret_cast<LeafPage *>(pre_middle);
-      auto middle_leaf_page = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_leaf->GetNextPageId())->GetData());
-      auto middle_key_leaf = reinterpret_cast<LeafPage *>(middle_leaf_page);
-      auto aft_middle = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_key_leaf->GetNextPageId())->GetData());
-      KeyType middle_key = middle_key_leaf->KeyAt(0);
-      InternalPage *parent = reinterpret_cast<InternalPage *>(reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(node->GetParentPageId())->GetData()));
-      int neighbor_index = parent->ValueIndex(neighbor_node->GetPageId());
-      parent->SetKeyAt(neighbor_index, reinterpret_cast<LeafPage *>(aft_middle)->KeyAt(0));
-      nei->MoveFirstToEndOf(now, middle_key, buffer_pool_manager_);
-      buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
-      buffer_pool_manager_->UnpinPage(middle_leaf_page->GetPageId(), false);
-      buffer_pool_manager_->UnpinPage(aft_middle->GetPageId(), false);
+      setindex = 1;
+      leaf_neighbor->MoveFirstToEndOf(leaf_node);
+      parent->SetKeyAt(setindex, leaf_neighbor->KeyAt(0));
     }
-  }
+    buffer_pool_manager_->UnpinPage(leaf_node->GetPageId(),true);
+    buffer_pool_manager_->UnpinPage(leaf_neighbor->GetPageId(),true);
+    buffer_pool_manager_->UnpinPage(node->GetParentPageId(), true);
+  } 
   else{
-    if(node->IsLeafPage()){
-      LeafPage* now = reinterpret_cast<LeafPage *>(node);
-      LeafPage* nei = reinterpret_cast<LeafPage *>(neighbor_node);
-
-      auto pre_middle = FindLeafPage(nei->KeyAt(nei->GetSize() - 1), false);
-      auto middle_leaf = reinterpret_cast<LeafPage *>(pre_middle);
-      auto middle_leaf_page = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_leaf->GetNextPageId())->GetData());
-      auto middle_key_leaf = reinterpret_cast<LeafPage *>(middle_leaf_page);
-      auto aft_middle = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_key_leaf->GetNextPageId())->GetData());
-      InternalPage *parent = reinterpret_cast<InternalPage *>(reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(neighbor_node->GetParentPageId())->GetData()));
-      int node_index = parent->ValueIndex(node->GetPageId());
-      parent->SetKeyAt(node_index, middle_leaf->KeyAt(middle_leaf->GetSize() - 1));
-      nei->MoveLastToFrontOf(now);
-      buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
-      buffer_pool_manager_->UnpinPage(middle_leaf_page->GetPageId(), false);
-      buffer_pool_manager_->UnpinPage(aft_middle->GetPageId(), false);
-    }
+    InternalPage* internal_node = reinterpret_cast<InternalPage*>(node);
+    InternalPage* internal_neighbor = reinterpret_cast<InternalPage*>(neighbor_node);
+    if(index){
+      setindex = parent->ValueIndex(internal_node->GetPageId());
+      internal_neighbor->MoveLastToFrontOf(internal_node, parent->KeyAt(setindex), buffer_pool_manager_);
+      parent->SetKeyAt(setindex, internal_node->KeyAt(0));
+    } 
     else{
-      InternalPage* now = reinterpret_cast<InternalPage *>(node);
-      InternalPage* nei = reinterpret_cast<InternalPage *>(neighbor_node);
-
-      auto pre_middle = FindLeafPage(nei->KeyAt(nei->GetSize() - 1), false);
-      auto middle_leaf = reinterpret_cast<LeafPage *>(pre_middle);
-      auto middle_leaf_page = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_leaf->GetNextPageId())->GetData());
-      auto middle_key_leaf = reinterpret_cast<LeafPage *>(middle_leaf_page);
-      auto aft_middle = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(middle_key_leaf->GetNextPageId())->GetData());
-      KeyType middle_key = middle_key_leaf->KeyAt(0);
-      InternalPage *parent = reinterpret_cast<InternalPage *>(reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(node->GetParentPageId())->GetData()));
-      int node_index = parent->ValueIndex(node->GetPageId());
-      parent->SetKeyAt(node_index, middle_leaf->KeyAt(0));
-      nei->MoveLastToFrontOf(now, middle_key, buffer_pool_manager_);
-      buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
-      buffer_pool_manager_->UnpinPage(middle_leaf_page->GetPageId(), false);
-      buffer_pool_manager_->UnpinPage(aft_middle->GetPageId(), false);
+      setindex = 1;
+      internal_neighbor->MoveFirstToEndOf(internal_node, parent->KeyAt(setindex), buffer_pool_manager_);
+      parent->SetKeyAt(setindex, internal_neighbor->KeyAt(0));
     }
+    buffer_pool_manager_->UnpinPage(internal_node->GetPageId(),true);
+    buffer_pool_manager_->UnpinPage(internal_neighbor->GetPageId(),true);
+    buffer_pool_manager_->UnpinPage(node->GetParentPageId(), true);
   }
-  buffer_pool_manager_->UnpinPage(node->GetPageId(), true);
-  buffer_pool_manager_->UnpinPage(neighbor_node->GetPageId(), true);
+  //Check();
 }
 
 /*

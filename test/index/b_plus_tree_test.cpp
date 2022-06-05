@@ -48,9 +48,12 @@ TEST(BPlusTreeTests, SampleTest) {
   }
   ASSERT_TRUE(tree.Check());
   // Delete half keys
+  //printf("before remove\n");
   for (int i = 0; i < n / 2; i++) {
     tree.Remove(delete_seq[i]);
+    //printf("after no.%d\n", i);
   }
+  
   tree.PrintTree(mgr[1]);
   // Check valid
   ans.clear();
