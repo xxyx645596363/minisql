@@ -208,11 +208,8 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(BPlusTreeInternalPage *recipient,
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
                                                       BufferPoolManager *buffer_pool_manager) {
-  //auto parent = reinterpret_cast <BPlusTreeInternalPage *> (buffer_pool_manager->FetchPage(GetParentPageId())->GetData());
   recipient->CopyLastFrom(std::make_pair(middle_key, array_[0].second), buffer_pool_manager);
-  //parent->SetKeyAt(parent->ValueIndex(GetPageId()), array_[1].first);
   Remove(0);
-  //buffer_pool_manager->UnpinPage(parent->GetPageId(), true);
 }
 
 /* Append an entry at the end.
@@ -241,12 +238,9 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
                                                        BufferPoolManager *buffer_pool_manager) {
   int sz = GetSize();
-  //auto recipient_parent = reinterpret_cast <BPlusTreeInternalPage *> (buffer_pool_manager->FetchPage(recipient->GetParentPageId())->GetData());
   recipient->SetKeyAt(1, middle_key);
   recipient->CopyFirstFrom(array_[sz-1], buffer_pool_manager);
-  //recipient_parent->SetKeyAt(recipient_parent->ValueIndex(GetPageId()), array_[sz-1].first);
   IncreaseSize(-1);
-  //buffer_pool_manager->UnpinPage(recipient_parent->GetPageId(), true);
 }
 
 /* Append an entry at the beginning.
