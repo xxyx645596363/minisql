@@ -6,15 +6,22 @@
 #include <iomanip>
 #include <stdlib.h>
 #include <fstream>
+#include <set>
+#include <algorithm>
 #include "common/dberr.h"
 #include "common/instance.h"
 #include "transaction/transaction.h"
+#include "glog/logging.h"
+#include "parser/syntax_tree_printer.h"
+#include "utils/tree_file_mgr.h"
 
 extern "C" {
 #include "parser/parser.h"
 };
 
 using namespace std;
+
+#define Mapping_Type std::pair<GenericKey<64>, RowId>
 
 /**
  * ExecuteContext stores all the context necessary to run in the execute engine

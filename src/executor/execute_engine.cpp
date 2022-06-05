@@ -1,5 +1,6 @@
 #include "executor/execute_engine.h"
 #include "glog/logging.h"
+#define ENABLE_EXECUTE_DEBUG 1
 
 ExecuteEngine::ExecuteEngine() {
 
@@ -66,10 +67,13 @@ dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *co
 
   //判断当前数据库名称是否存在
   if (dbs_.find(new_dbs_name) != dbs_.end())//若存在
+  {
+    std::cout << "Database Already Exists!\n";
     return DB_FAILED;
-  
+  }
+     
   //创建新数据库
-  DBStorageEngine *new_dbs = new DBStorageEngine(new_dbs_name);
+  DBStorageEngine *new_dbs = new DBStorageEngine(new_dbs_name, true);
 
   //将新的数据库指针加入到ExecuteEngine的unordered_map——dbs_中
   dbs_.emplace(new_dbs_name, new_dbs);
@@ -88,7 +92,10 @@ dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *cont
 
   //判断是否存在要删除的数据库
   if (dbs_.find(deleted_dbs_name) == dbs_.end())//若不存在，直接返回
+  {
+    std::cout << "Database Not Exist!\n";
     return DB_NOT_EXIST;
+  }
 
   //根据要删除的数据库名称获取并释放数据库指针，并从unordered_map中删除对应数据库
   DBStorageEngine *deleted_dbs = dbs_.at(deleted_dbs_name);
@@ -138,7 +145,7 @@ dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *contex
   LOG(INFO) << "ExecuteShowTables" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -152,7 +159,7 @@ dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *contex
   //遍历输出所有表的名称
   for (auto iter = now_tables.begin(); iter != now_tables.end(); iter++)
   {
-    std::cout << iter->GetTableName() << std::endl;
+    std::cout << (*iter)->GetTableName() << std::endl;
   }
   return DB_SUCCESS;
 }
@@ -163,7 +170,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -177,10 +184,10 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   //获取列信息
   //获取主键列，存到set和vector中
   if (ast->child_->next_->type_ != kNodeColumnDefinitionList) return DB_FAILED;//检查语义
-  std::set<char *> prim_set;
+  set<char *> prim_set;
   std::vector<string> prim_vec;
   pSyntaxNode prim_node = ast->child_->next_->child_;
-  while ((prim_node->type_ != kNodeColumnList || prim_node->val_[0] != 'p') && (prim_node != nullptr)) prim_node = col_node->next_;//定位存储主键的子树
+  while ((prim_node->type_ != kNodeColumnList || prim_node->val_[0] != 'p') && (prim_node != nullptr)) prim_node = prim_node->next_;//定位存储主键的子树
   if (prim_node == nullptr || prim_node->type_ != kNodeColumnList) return DB_FAILED;
   for (pSyntaxNode node = prim_node->child_; node != nullptr; node = node->next_)
   {
@@ -194,11 +201,11 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   for (col_node = ast->child_->next_->child_; col_node->type_ == kNodeColumnDefinition; col_node = col_node->next_, index++)
   {
     //获取列的name
-    char *col_nume = col_node->child_->val_;
+    char *col_name = col_node->child_->val_;
     //获取列的type和length
     char *col_type = col_node->child_->next_->val_;
     TypeId col_typeid;
-    std:string col_len_str;
+    string col_len_str;
     uint32_t col_len;
     switch (col_type[0])
     {
@@ -239,13 +246,13 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   Schema *new_Schema = new Schema(columns);
 
   //创建空的TableInfo用于存储创建table函数的返回值
-  TableInfo *new_tableinfo = new TableInfo;
+  TableInfo *new_tableinfo;
 
   //调用CatalogManager的CreateTable函数为数据库创建新的表
   dberr_t createtable_ret = now_dbs->catalog_mgr_->CreateTable(new_table_name, new_Schema, nullptr, new_tableinfo);
   
   //为表的主键自动创建索引：
-  IndexInfo *index_info = new IndexInfo();//创建一个IndexInfo用于引用返回
+  IndexInfo *index_info;//创建一个IndexInfo用于引用返回
   dberr_t createindex_ret = now_dbs->catalog_mgr_->CreateIndex(new_table_name, "primary_key", prim_vec, nullptr, index_info);
   
   //返回创建结果
@@ -260,7 +267,7 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
   LOG(INFO) << "ExecuteDropTable" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -278,7 +285,7 @@ dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context
 }
 
 
-void printIndexInfo(const IndexInfo * index, const std::string table_name)
+void printIndexInfo(IndexInfo * index, const std::string table_name)
 {
   std::cout << "Index_name: " << index->GetIndexName() << std::endl;
   std::cout << "Table_name: " << table_name << std::endl;
@@ -296,7 +303,7 @@ dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *conte
   LOG(INFO) << "ExecuteShowIndexes" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -306,12 +313,12 @@ dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *conte
   //调用函数遍历每个table，输出索引信息
   std::vector<TableInfo *> tables;
   now_dbs->catalog_mgr_->GetTables(tables);//获取所有table
-  for (int i = 0; i < tables.size(); i++)
+  for (long unsigned int i = 0; i < tables.size(); i++)
   {
     std::string table_name = tables[i]->GetTableName();//获取table的名字
     std::vector<IndexInfo *> indexes;//vector for indexes in this table;
     now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes);
-    for (int j = 0; j < indexes.size(); j++)
+    for (long unsigned int j = 0; j < indexes.size(); j++)
     {
       printIndexInfo(indexes[j], table_name);
     }
@@ -343,7 +350,7 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   }
 
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -351,7 +358,7 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   DBStorageEngine *now_dbs = dbs_.at(current_db_);
 
   //调用catalog的CreateIndex函数创建索引：
-  IndexInfo *index_info = new IndexInfo();//创建一个IndexInfo用于引用返回
+  IndexInfo *index_info;//创建一个IndexInfo用于引用返回
   dberr_t createindex_ret = now_dbs->catalog_mgr_->CreateIndex(table_name, new_index_name, index_keys, nullptr, index_info);
   return createindex_ret;
 }
@@ -363,11 +370,11 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
 #endif
   //获取删除的索引名称
   pSyntaxNode ast_son = ast->child_;
-  if (ast_son->type_ != kNodeIdentifier) reutrn DB_FAILED;//检查语义
+  if (ast_son->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
   std::string drop_index_name = ast_son->val_;
 
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -376,8 +383,9 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
 
   //调用函数遍历每个table，删除索引
   std::vector<TableInfo *> tables;
-  dberr_t dropindex_ret = DB_INDEX_NOT_FOUND, gettables_ret = now_dbs->catalog_mgr_->GetTables(tables);//获取所有table
-  for (int i = 0; i < tables.size(); i++)
+  dberr_t dropindex_ret = DB_INDEX_NOT_FOUND;
+  now_dbs->catalog_mgr_->GetTables(tables);//获取所有table
+  for (long unsigned int i = 0; i < tables.size(); i++)
   {
     std::string table_name = tables[i]->GetTableName();//获取table的名字
     if (now_dbs->catalog_mgr_->DropIndex(table_name, drop_index_name) == DB_SUCCESS) dropindex_ret = DB_SUCCESS;//一旦有一个table删除成功，则返回成功
@@ -395,13 +403,13 @@ void printRow(const Row row, const std::vector<std::string> col_names, const boo
     if ( allCol || find(col_names.begin(), col_names.end(), col_name) != col_names.end() )//当前列属于要输出的列
     {
       if (row.GetField(i)->IsNull())
-        cout << setw(20) << setiosflags(left) << "null";  
-      else cout << setw(20) << setiosflags(left) << row.GetField(i)->GetData();
+        cout << setw(20) << setiosflags(ios::left) << "null";  
+      else cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetData();
     }
   }cout << endl;
 }
 
-void printRowWithpair(const MappingType keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
 {
   //获取rowid:
   RowId rid = keypair.second;
@@ -422,14 +430,14 @@ SelectCondition *getConditionByCompare(pSyntaxNode compare_node)
   
   SelectCondition *new_condition = new SelectCondition;
   //获取判断类型：
-  string compare_type = compare_node->type_;
+  string compare_type = compare_node->val_;
   if (compare_type == "=") new_condition->type_ = 0;
   else if (compare_type == "<>") new_condition->type_ = 1;
   else if (compare_type == "<") new_condition->type_ = 2;
   else if (compare_type == ">") new_condition->type_ = 3;
   else if (compare_type == "<=") new_condition->type_ = 4;
   else if (compare_type == ">=") new_condition->type_ = 5;
-  else return DB_FAILED;
+  else return nullptr;
   //获取判断属性名：
   new_condition->attri_name = compare_node->child_->val_;
   //获取判断值：
@@ -463,13 +471,13 @@ dberr_t getSelectCondition(vector<SelectCondition *> &select_conditions, pSyntax
   if (condition_node->child_->type_ == kNodeCompareOperator)//where后只有一个条件
   {
     select_conditions.push_back(getConditionByCompare(condition_node));
-    reutrn DB_SUCCESS;
+    return DB_SUCCESS;
   }
   else if (condition_node->child_->type_ == kNodeConnector)//where后为and
   {
     select_conditions.push_back(getConditionByCompare(condition_node->child_));
     select_conditions.push_back(getConditionByCompare(condition_node->child_->next_));
-    reutrn DB_SUCCESS;
+    return DB_SUCCESS;
   }
   else return DB_FAILED;
 }
@@ -486,18 +494,18 @@ bool checkCondition(vector<SelectCondition *> select_conditions, const Row row, 
     //将进行比较的值变为field形式用于调用函数进行比较：
     if (select_conditions[i]->type_id_ == kTypeInt)
     {
-      comField = new Field(kTypeInt, select_conditions[i]->value_.int_);
+      comfield = new Field(kTypeInt, select_conditions[i]->value_.int_);
     }
     else if (select_conditions[i]->type_id_ == kTypeFloat)
     {
-      comField = new Field(kTypeFloat, select_conditions[i]->value_.float_);
+      comfield = new Field(kTypeFloat, select_conditions[i]->value_.float_);
     }
     else
     {
-      comField = new Field(kTypeChar, select_conditions[i]->value_.chars_);
+      comfield = new Field(kTypeChar, select_conditions[i]->value_.chars_, strlen(select_conditions[i]->value_.chars_), true);
     }
     //根据条件类型调用不同函数进行比较：
-    switch (slect_conditions[i]->type_)
+    switch (select_conditions[i]->type_)
     {
     case 0://=
       if (field->CompareEquals(*comfield) != CmpBool::kTrue) return false;
@@ -525,7 +533,7 @@ bool checkCondition(vector<SelectCondition *> select_conditions, const Row row, 
   return true;
 }
 
-bool checkIndexSameWithCondition(const IndexInfo *index, const SelectCondition *condition)
+bool checkIndexSameWithCondition(IndexInfo *index, const SelectCondition *condition)
 {
   if (index->GetIndexKeySchema()->GetColumnCount() != 1) return false;//首先须为单属性索引
   return condition->attri_name == index->GetIndexKeySchema()->GetColumn(0)->GetName();
@@ -560,21 +568,21 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   Row key_row(fields);
   GenericKey<64> genekey;
   genekey.SerializeFromKey(key_row, schema);
-  auto key_iter = indexinfo->index_->GetBeginIterator(genekey);
-  auto begin_iter = indexinfo->index_->GetBeginIterator();
-  auto end_iter = indexinfo->index_->GetEndIterator();
+  auto key_iter = indexinfo->GetIndex()->GetBeginIterator(genekey);
+  auto begin_iter = indexinfo->GetIndex()->GetBeginIterator();
+  auto end_iter = indexinfo->GetIndex()->GetEndIterator();
 
   //获取table_heap:
   TableHeap *table_heap = indexinfo->GetTableInfo()->GetTableHeap();  
 
   //根据条件不同执行结果
   //void printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
-  //void printRowWithpair(const MappingType keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+  //void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   switch (condition->type_)
   {
   case 0://=
     //获取rowid:
-    MappingType keypair = *key_iter;//MappingType std::pair<KeyType, ValueType>
+    Mapping_Type keypair = *key_iter;//Mapping_Type std::pair<KeyType, ValueType>
     printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     break;
   case 1://!=
@@ -582,7 +590,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     {
       if (iter == key_iter) continue;//跳过等于的row
       //获取rowid:
-      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
@@ -590,7 +598,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     for (auto iter = begin_iter; iter != key_iter; iter++)
     {
       //获取rowid:
-      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
@@ -600,7 +608,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     for (; iter != end_iter; iter++)
     {
       //获取rowid:
-      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
@@ -608,7 +616,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     for (auto iter = begin_iter; iter != end_iter; iter++)
     {
       //获取rowid:
-      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
       if (iter == key_iter) break;
     }
@@ -617,7 +625,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     for (auto iter = key_iter; iter != end_iter; iter++)
     {
       //获取rowid:
-      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
       if (iter == key_iter) break;
     }
@@ -634,7 +642,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -653,11 +661,11 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   std::vector<std::string> col_names;
   if (ast->child_->type_ == kNodeColumnList)
   {
-    for (pSyntaxNode col_node = ast->child_->child; col_node != nullptr; col_node = col_node->next_)
+    for (pSyntaxNode col_node = ast->child_->child_; col_node != nullptr; col_node = col_node->next_)
     {
       if (col_node->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
       col_names.push_back(std::string(col_node->val_));
-      cout << setw(20) << setiosflags(left) << col_node->val_;
+      cout << setw(20) << setiosflags(ios::left) << col_node->val_;
     }cout << endl;
   }
   else if (ast->child_->type_ == kNodeAllColumns) allCol = true;
@@ -669,7 +677,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   TableHeap *table_heap = table->GetTableHeap();//获取堆表
   if (condition_node == nullptr)//无条件，输出所有列
   {
-    for (auto row_iter = table_heap->Begin(); row_iter != table_heap->End(); row_iter++)
+    for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); row_iter++)
     {
       printRow(*row_iter, col_names, allCol, schema);
     }cout << "................................................................................\n";
@@ -680,7 +688,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     getSelectCondition(select_conditions, condition_node);
     if (select_conditions.size() == 2)//多条件查询，直接遍历
     {
-      for (auto row_iter = table_heap->Begin(); row_iter != table_heap->End(); row_iter++)
+      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); row_iter++)
       {
         if (checkCondition(select_conditions, *row_iter, schema))
           printRow(*row_iter, col_names, allCol, schema);
@@ -713,7 +721,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   LOG(INFO) << "ExecuteInsert" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -732,9 +740,10 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
   TableHeap *table_heap = ins_table->GetTableHeap();//获取堆表
   Schema *schema = ins_table->GetSchema();
-  for (pSyntaxNode val_node = table_node->next_->child_, uint32_t idx = 0; val_node != nullptr; val_node = val_node->next_, idx++)
+  uint32_t idx = 0;
+  for (pSyntaxNode val_node = table_node->next_->child_; val_node != nullptr; val_node = val_node->next_)
   {
-    Column *col = schema->GetColumn(idx);//获取当前插入属性对应的column
+    const Column *col = schema->GetColumn(idx);//获取当前插入属性对应的column
     if (idx == ins_table->GetPrimIdx() || col->IsUnique())//若为主键或unique,则遍历堆表检查是否有重复值
     {
       for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++)
@@ -758,6 +767,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
       return DB_FAILED;
       break;
     }
+    idx++;
   }
 
   //根据field数组创建row,并插入到堆表
@@ -787,7 +797,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   LOG(INFO) << "ExecuteDelete" << std::endl;
 #endif
   //根据当前所在数据库名称获取当前数据库
-  if (current_db_.equals(""))//当前无数据库
+  if (!current_db_.length())//当前无数据库
   {
     std::cout << "No current dbs!" << std::endl;
     return DB_FAILED;
@@ -802,13 +812,14 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   //判断删除条件：
   bool allDelete = false;
   pSyntaxNode condition_node = table_node->next_;
+  std::string condition_name;
+  float del_val;
   if (condition_node == nullptr) allDelete = true;
   else//偷个懒，根据验收流程默认条件为=,且只有一个条件
   {
-    std::string condition_name = condition_node->child_->child_->val_;//名称
+    condition_name = condition_node->child_->child_->val_;//名称
     //获取值：
     pSyntaxNode val_node = condition_node->child_->child_->next_;
-    float del_val;
     if (strstr(val_node->val_, ".") == NULL)//不存在小数点，为整数
     {
       del_val = atoi(val_node->val_);
