@@ -726,17 +726,44 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   std::string table_name = table_node->val_;
 
   //循环获取插入的每个column的值并创建field数组：
-  std::vector<Field *> fields;
+  std::vector<Field> fields;
   TableInfo *ins_table; 
   dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, ins_table);//获取表
   if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
+  TableHeap *table_heap = ins_table->GetTableHeap();//获取堆表
   Schema *schema = ins_table->GetSchema();
   for (pSyntaxNode val_node = table_node->next_->child_, uint32_t idx = 0; val_node != nullptr; val_node = val_node->next_, idx++)
   {
     Column *col = schema->GetColumn(idx);//获取当前插入属性对应的column
-    if (idx == ins_table->GetPrimIdx() || col->)
+    if (idx == ins_table->GetPrimIdx() || col->IsUnique())//若为主键或unique,则遍历堆表检查是否有重复值
+    {
+      for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++)
+      {
+        Field *field = (*iter).GetField(idx);//获取field
+        if (!strcmp(field->GetData(), val_node->val_)) return DB_FAILED;
+      }
+    }
+    switch (col->GetType())
+    {
+    case kTypeInt:
+      fields.push_back(Field(kTypeInt, atoi(val_node->val_)));
+      break;
+    case kTypeFloat:
+      fields.push_back(Field(kTypeFloat, atof(val_node->val_)));
+      break;
+    case kTypeInt:
+      fields.push_back(Field(kTypeChar, val_node->val_, strlen(val_node->val_), true));
+      break;
+    default:
+      return DB_FAILED;
+      break;
+    }
   }
-  return DB_FAILED;
+
+  //根据field数组创建row,并插入到堆表
+  Row ins_row(fields);
+  if (table_heap->InsertTuple(ins_row, nullptr)) return DB_SUCCESS;
+  else return DB_FAILED;
 }
 
 
