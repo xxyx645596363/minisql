@@ -75,6 +75,8 @@ public:
 
   inline page_id_t GetRootPageId() const { return table_meta_->root_page_id_; }
 
+  inline uint32_t GetPrimIdx() const { return table_meta_->GetPrimIdx(); }
+
 private:
   explicit TableInfo() : heap_(new SimpleMemHeap()) {};
 
