@@ -734,7 +734,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   for (pSyntaxNode val_node = table_node->next_->child_, uint32_t idx = 0; val_node != nullptr; val_node = val_node->next_, idx++)
   {
     Column *col = schema->GetColumn(idx);//获取当前插入属性对应的column
-    
+    if (idx == ins_table->GetPrimIdx() || col->)
   }
   return DB_FAILED;
 }
