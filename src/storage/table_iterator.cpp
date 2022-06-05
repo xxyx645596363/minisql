@@ -6,7 +6,7 @@ TableIterator::TableIterator(TableHeap *tableheap, Row *row): tableheap_(tablehe
 
 TableIterator::TableIterator(const TableIterator &other) {
   tableheap_ = other.tableheap_;
-  row_ = new Row(*other.row_);
+  row_ = other.row_;
 }
 
 TableIterator::~TableIterator() {
