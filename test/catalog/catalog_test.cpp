@@ -51,7 +51,7 @@ TEST(CatalogTest, CatalogTableTest) {
   };
   auto schema = std::make_shared<Schema>(columns);
   Transaction txn;
-  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
+  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info, 0);
   ASSERT_TRUE(table_info != nullptr);
   TableInfo *table_info_02 = nullptr;
   ASSERT_EQ(DB_SUCCESS, catalog_01->GetTable("table-1", table_info_02));
@@ -60,6 +60,7 @@ TEST(CatalogTest, CatalogTableTest) {
   ASSERT_TRUE(table_heap != nullptr);
   delete db_01;
   /** Stage 2: Testing catalog loading */
+  puts("stage 2");
   auto db_02 = new DBStorageEngine(db_file_name, false);
   auto &catalog_02 = db_02->catalog_mgr_;
   TableInfo *table_info_03 = nullptr;
@@ -82,7 +83,7 @@ TEST(CatalogTest, CatalogIndexTest) {
   };
   auto schema = std::make_shared<Schema>(columns);
   Transaction txn;
-  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
+  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info,0);
   ASSERT_TRUE(table_info != nullptr);
 
   IndexInfo *index_info = nullptr;
@@ -116,6 +117,7 @@ TEST(CatalogTest, CatalogIndexTest) {
     ASSERT_EQ(rid.Get(), ret[i].Get());
   }
   delete db_01;
+  puts("1");
   /** Stage 2: Testing catalog loading */
   auto db_02 = new DBStorageEngine(db_file_name, false);
   auto &catalog_02 = db_02->catalog_mgr_;

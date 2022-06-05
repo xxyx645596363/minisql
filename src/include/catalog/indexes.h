@@ -7,6 +7,7 @@
 #include "index/generic_key.h"
 #include "index/b_plus_tree_index.h"
 #include "record/schema.h"
+using BP_TREE_INDEX = BPlusTreeIndex<GenericKey<64>, RowId, GenericComparator<64>>;
 
 class IndexMetadata {
   friend class IndexInfo;
@@ -36,7 +37,12 @@ private:
   IndexMetadata() = delete;
 
   explicit IndexMetadata(const index_id_t index_id, const std::string &index_name,
-                         const table_id_t table_id, const std::vector<uint32_t> &key_map) {}
+                         const table_id_t table_id, const std::vector<uint32_t> &key_map) {
+                           index_id_ = index_id;
+                           index_name_ = index_name;
+                           table_id_ = table_id;
+                           key_map_ = key_map;
+                         }
 
 private:
   static constexpr uint32_t INDEX_METADATA_MAGIC_NUM = 344528;
@@ -45,7 +51,7 @@ private:
   table_id_t table_id_;
   std::vector<uint32_t> key_map_;  /** The mapping of index key to tuple key */
 };
-
+ 
 /**
  * The IndexInfo class maintains metadata about a index.
  */
@@ -60,11 +66,10 @@ public:
     delete heap_;
   }
 
-  void Init(IndexMetadata *meta_data, TableInfo *table_info, BufferPoolManager *buffer_pool_manager) {
-    // Step1: init index metadata and table info
-    // Step2: mapping index key to key schema
-    // Step3: call CreateIndex to create the index
-    ASSERT(false, "Not Implemented yet.");
+  void Init(IndexMetadata *meta_data, TableInfo *table_info, BufferPoolManager *buffer_pool_manager);
+
+  void IndexSerialize(char * &buf){
+    meta_data_->SerializeTo(buf);
   }
 
   inline Index *GetIndex() { return index_; }
@@ -82,8 +87,26 @@ private:
                          key_schema_{nullptr}, heap_(new SimpleMemHeap()) {}
 
   Index *CreateIndex(BufferPoolManager *buffer_pool_manager) {
-    ASSERT(false, "Not Implemented yet.");
-    return nullptr;
+    // //ASSERT(false, "Not Implemented yet.");
+    // void * buf = heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<4>, RowId, GenericComparator<4>>));
+    // index = new(buf)BPlusTreeIndex<GenericKey<64>, RowId, GenericComparator<64>>(meta_data_->index_id_,key_schema_, buffer_pool_manager);
+    
+    BP_TREE_INDEX * index = ALLOC_P(heap_, BP_TREE_INDEX)(meta_data_->index_id_,key_schema_, buffer_pool_manager);
+    TableHeap * table_heap;
+    table_heap = table_info_->GetTableHeap();
+    for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++) {
+        // printf("size of table_heap i = %d\n", ++cnt);
+        const Row &row = *iter;
+        std::vector<Field> new_fields;
+        uint32_t idx;
+        for(auto iter2 = meta_data_->key_map_.begin();iter2!=meta_data_->key_map_.end();iter2++){
+          idx = *iter2;
+          new_fields.emplace_back(*(row.GetField(idx)));
+        }
+        Row new_row(new_fields);
+        index->InsertEntry(new_row, row.GetRowId(), nullptr);
+    }
+    return index;
   }
 
 private:
@@ -93,5 +116,7 @@ private:
   IndexSchema *key_schema_;
   MemHeap *heap_;
 };
+
+
 
 #endif //MINISQL_INDEXES_H
