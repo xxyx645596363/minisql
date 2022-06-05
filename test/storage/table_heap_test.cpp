@@ -42,7 +42,6 @@ TEST(TableHeapTest, TableHeapSampleTest) {
     row_values[row.GetRowId().Get()] = fields;
     delete[] characters;
   }
-
   ASSERT_EQ(row_nums, row_values.size());
   for (auto row_kv : row_values) {
     Row row(RowId(row_kv.first));
@@ -68,7 +67,11 @@ TEST(TableHeapTest, TableHeapSampleTest) {
   bool delete_success = true;
   
   TableIterator it = table_heap->Begin(nullptr);
+  // std::cout << "out table_heap_test *it.GetRowId().GetPageId(): " << (*it).GetRowId().GetPageId() << endl;
+  // std::cout << "out table_heap_test it->GetRowId().GetPageId(): " << it->GetRowId().GetPageId() << endl;
+  // TableIterator it = table_heap->End();
   for(;it!=table_heap->End();it++){
+    // std::cout << "table_heap_test for_iter\n";
     if(it->GetRowId().GetPageId() == 5 && it->GetRowId().GetSlotNum() == 20) delete_success = false;
     if(it->GetRowId().GetPageId() == 3 && it->GetRowId().GetSlotNum() == 23){
       for (size_t j = 0; j < schema.get()->GetColumnCount(); j++) {
@@ -76,11 +79,13 @@ TEST(TableHeapTest, TableHeapSampleTest) {
       }
     }
     Row row(it->GetRowId());
+  // std::cout << "table_heap_test it->GetRowId().GetSlotNum(): " << it->GetRowId().GetSlotNum() << std::endl;
     table_heap->GetTuple(&row, nullptr);
     
     for (size_t j = 0; j < schema.get()->GetColumnCount(); j++) {
       ASSERT_EQ(CmpBool::kTrue, (*it).GetField(j)->CompareEquals(*row.GetField(j)));
     }
+    // std::cout << "table_heap_test for_iter_end\n";
   }
   ASSERT_EQ(delete_success, true);
 }

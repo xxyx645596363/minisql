@@ -69,11 +69,11 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
   }
 
   Row old_row(rid);
-  if (!this_page->GetTuple(&old_row, schema_, txn, lock_manager_))
-  {
-    buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
-    return false;
-  }
+  // if (!this_page->GetTuple(&old_row, schema_, txn, lock_manager_))
+  // {
+  //   buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
+  //   return false;
+  // }
 
   int update_ret = this_page->UpdateTuple(row, &old_row, schema_, txn, lock_manager_, log_manager_);
   if (update_ret == 1)
@@ -127,7 +127,7 @@ void TableHeap::FreeHeap() {
 
 bool TableHeap::GetTuple(Row *row, Transaction *txn) {
   RowId this_rid = row->GetRowId();
-
+  // std::cout << "TableHeap::GetTuple this_rid.GetPageId(): " << this_rid.GetPageId() << std::endl;
   auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_rid.GetPageId()));
   buffer_pool_manager_->UnpinPage(this_rid.GetPageId(), false);//将该页unpin
   if (this_page == nullptr) return false;
@@ -150,11 +150,11 @@ TableIterator TableHeap::Begin(Transaction *txn) {
     this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));//get next page
   }
   
-  Row first_row(first_rid);
-  if (this_page->GetTuple(&first_row, schema_, txn, lock_manager_))
+  Row *first_row = new Row(first_rid);
+  if (this_page->GetTuple(first_row, schema_, txn, lock_manager_))
   {
     buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
-    return TableIterator(this, &first_row);
+    return TableIterator(this, first_row);
   }
   buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
   return End();

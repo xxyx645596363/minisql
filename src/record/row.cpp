@@ -35,6 +35,7 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
   int64_t null_bitmap = MACH_READ_FROM(int64_t, buf);
   buf += sizeof(int64_t);
 
+  fields_.clear();
   for (int64_t i = 0; i < field_num; i++)
   {
     bool is_null = null_bitmap & (1 << i);
