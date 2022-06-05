@@ -14,7 +14,12 @@
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
-
+  SetPageType(IndexPageType::LEAF_PAGE);
+  SetSize(0);
+  SetPageId(page_id);
+  SetParentPageId(parent_id);
+  SetNextPageId(INVALID_PAGE_ID);
+  SetMaxSize(max_size);
 }
 
 /**
@@ -22,12 +27,12 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, in
  */
 INDEX_TEMPLATE_ARGUMENTS
 page_id_t B_PLUS_TREE_LEAF_PAGE_TYPE::GetNextPageId() const {
-  return INVALID_PAGE_ID;
+  return next_page_id_;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) {
-
+  next_page_id_ = next_page_id;
 }
 
 /**
@@ -36,7 +41,15 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(const KeyType &key, const KeyComparator &comparator) const {
-  return 0;
+  int sz = GetSize();
+  int flag = sz;
+  for(int i = 0; i < sz; i++){
+    if(comparator(array_[i].first, key) >= 0){
+      flag = i;
+      break;
+    }
+  }
+  return flag;
 }
 
 /*
@@ -45,9 +58,7 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(const KeyType &key, const KeyComparator
  */
 INDEX_TEMPLATE_ARGUMENTS
 KeyType B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const {
-  // replace with your own code
-  KeyType key{};
-  return key;
+  return array_[index].first;
 }
 
 /*
@@ -56,8 +67,7 @@ KeyType B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const {
  */
 INDEX_TEMPLATE_ARGUMENTS
 const MappingType &B_PLUS_TREE_LEAF_PAGE_TYPE::GetItem(int index) {
-  // replace with your own code
-  return array_[0];
+  return array_[index];
 }
 
 /*****************************************************************************
@@ -69,7 +79,15 @@ const MappingType &B_PLUS_TREE_LEAF_PAGE_TYPE::GetItem(int index) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) {
-  return 0;
+  int sz = GetSize();
+  for (int i = sz-1; i >= KeyIndex(key, comparator); i--) {
+    array_[i+1].first = array_[i].first;
+    array_[i+1].second = array_[i].second;
+  }
+  array_[KeyIndex(key, comparator)].first = key;
+  array_[KeyIndex(key, comparator)].second = value;
+  IncreaseSize(1);
+  return sz+1;
 }
 
 /*****************************************************************************
@@ -80,7 +98,12 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &valu
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(BPlusTreeLeafPage *recipient) {
-
+  int sz = (GetSize()+1) / 2;
+  MappingType *start = array_ + GetSize() - sz;
+  recipient->CopyNFrom(start, sz);
+  IncreaseSize(-1 * sz);
+  recipient->SetNextPageId(GetNextPageId());
+  SetNextPageId(recipient->GetPageId());
 }
 
 /*
@@ -88,7 +111,10 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(BPlusTreeLeafPage *recipient) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyNFrom(MappingType *items, int size) {
-
+  for (int i = 0; i < size; i++) {
+    array_[GetSize()+i] = *(items + i);
+  }
+  IncreaseSize(size);
 }
 
 /*****************************************************************************
@@ -101,7 +127,16 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyNFrom(MappingType *items, int size) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType &value, const KeyComparator &comparator) const {
-  return false;
+  int sz = GetSize();
+  bool flag = false;
+  for(int i = 0; i < sz; i++){
+    if(comparator(array_[i].first, key) == 0){
+      value = array_[i].second;
+      flag = true;
+      break;
+    }
+  }
+  return flag;
 }
 
 /*****************************************************************************
@@ -115,7 +150,23 @@ bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType &value, co
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator) {
-  return 0;
+  int sz = GetSize();
+  bool flag = false;
+  int flagi;
+  for(int i = 0; i < sz; i++){
+    if(comparator(array_[i].first, key) == 0){
+      flag = true;
+      flagi = i;
+      break;
+    }
+  }
+  if(flag){
+    for(int i = flagi; i < sz - 1; i++){
+      array_[i] = array_[i+1];
+    }
+    IncreaseSize(-1);
+  }
+  return GetSize();
 }
 
 /*****************************************************************************
@@ -127,7 +178,10 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const 
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {
-
+  int sz = GetSize();
+  recipient->CopyNFrom(array_, sz);
+  SetSize(0);
+  recipient->SetNextPageId(next_page_id_);
 }
 
 /*****************************************************************************
@@ -139,7 +193,13 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient) {
-
+  recipient->CopyLastFrom(GetItem(0));
+  int sz = GetSize();
+  for(int i = 1; i< sz; i++){
+    array_[i-1].first = array_[i].first;
+    array_[i-1].second = array_[i].second;
+  }
+  IncreaseSize(-1);
 }
 
 /*
@@ -147,7 +207,9 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient) 
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyLastFrom(const MappingType &item) {
-
+  int sz = GetSize();
+  array_[sz] = item;
+  IncreaseSize(1);
 }
 
 /*
@@ -155,7 +217,9 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyLastFrom(const MappingType &item) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeLeafPage *recipient) {
-
+  int sz = GetSize();
+  recipient->CopyFirstFrom(GetItem(sz - 1));
+  IncreaseSize(-1);
 }
 
 /*
@@ -164,7 +228,12 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeLeafPage *recipient)
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyFirstFrom(const MappingType &item) {
-
+  int sz = GetSize();
+  for(int i = sz; i > 0; i--){
+    array_[i] = array_[i-1];
+  }
+  IncreaseSize(1);
+  array_[0] = item;
 }
 
 template
