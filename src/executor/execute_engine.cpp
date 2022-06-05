@@ -712,6 +712,30 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteInsert" << std::endl;
 #endif
+  //根据当前所在数据库名称获取当前数据库
+  if (current_db_.equals(""))//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
+  DBStorageEngine *now_dbs = dbs_.at(current_db_);
+
+  //获取表名和表：
+  pSyntaxNode table_node = ast->child_;
+  if (table_node->type_ != kNodeIdentifier) return DB_FAILED;
+  std::string table_name = table_node->val_;
+
+  //循环获取插入的每个column的值并创建field数组：
+  std::vector<Field *> fields;
+  TableInfo *ins_table; 
+  dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, ins_table);//获取表
+  if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
+  Schema *schema = ins_table->GetSchema();
+  for (pSyntaxNode val_node = table_node->next_->child_, uint32_t idx = 0; val_node != nullptr; val_node = val_node->next_, idx++)
+  {
+    Column *col = schema->GetColumn(idx);//获取当前插入属性对应的column
+    
+  }
   return DB_FAILED;
 }
 
