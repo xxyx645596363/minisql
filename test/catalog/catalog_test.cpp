@@ -51,7 +51,7 @@ TEST(CatalogTest, CatalogTableTest) {
   };
   auto schema = std::make_shared<Schema>(columns);
   Transaction txn;
-  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
+  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info, 0);
   ASSERT_TRUE(table_info != nullptr);
   TableInfo *table_info_02 = nullptr;
   ASSERT_EQ(DB_SUCCESS, catalog_01->GetTable("table-1", table_info_02));
@@ -82,7 +82,7 @@ TEST(CatalogTest, CatalogIndexTest) {
   };
   auto schema = std::make_shared<Schema>(columns);
   Transaction txn;
-  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info);
+  catalog_01->CreateTable("table-1", schema.get(), &txn, table_info, 0);
   ASSERT_TRUE(table_info != nullptr);
 
   IndexInfo *index_info = nullptr;
