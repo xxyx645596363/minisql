@@ -1,5 +1,5 @@
 #include "record/column.h"
-
+#include <iostream>
 Column::Column(std::string column_name, TypeId type, uint32_t index, bool nullable, bool unique)
         : name_(std::move(column_name)), type_(type), table_ind_(index),
           nullable_(nullable), unique_(unique) {
@@ -68,7 +68,7 @@ uint32_t Column::DeserializeFrom(char *buf, Column *&column, MemHeap *heap) {
   TypeId column_type;
   int column_type_int;
   bool column_nullable, column_unique;
-
+std::cout<<MACH_READ_FROM(uint32_t, buf)<<std::endl;
   ASSERT(MACH_READ_FROM(uint32_t, buf) == COLUMN_MAGIC_NUM, "Wrong for MAGIC_NUM.");//check magic_num
   buf += sizeof(uint32_t);//update the buf
 

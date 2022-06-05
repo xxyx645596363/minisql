@@ -1,4 +1,5 @@
 #include "record/schema.h"
+#include<iostream>
 
 //wsx_start
 
@@ -41,6 +42,7 @@ uint32_t Schema::DeserializeFrom(char *buf, Schema *&schema, MemHeap *heap) {
   {
     Column * new_column;
     buf += Column::DeserializeFrom(buf, new_column, heap);
+    std::cout<<new_column->GetName()<<std::endl;
     columns.push_back(new_column);
   }
   
