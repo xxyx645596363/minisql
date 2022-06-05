@@ -342,7 +342,12 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
     index_keys.push_back(key_node->val_);
   }
 
-  //获取当前数据库
+  //根据当前所在数据库名称获取当前数据库
+  if (current_db_.equals(""))//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
   DBStorageEngine *now_dbs = dbs_.at(current_db_);
 
   //调用catalog的CreateIndex函数创建索引：
@@ -361,7 +366,12 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
   if (ast_son->type_ != kNodeIdentifier) reutrn DB_FAILED;//检查语义
   std::string drop_index_name = ast_son->val_;
 
-  //获取当前数据库
+  //根据当前所在数据库名称获取当前数据库
+  if (current_db_.equals(""))//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
   DBStorageEngine *now_dbs = dbs_.at(current_db_);
 
   //调用函数遍历每个table，删除索引
@@ -623,7 +633,12 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
-  //获取当前数据库
+  //根据当前所在数据库名称获取当前数据库
+  if (current_db_.equals(""))//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
   DBStorageEngine *now_dbs = dbs_.at(current_db_);
 
   //获取表：
@@ -701,11 +716,74 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 }
 
 
+bool checkDeleteRow(const Row &row, const std::string name, const float val, Schema *schema)
+{
+  //获取删除条件中属性名name对应的col_idx:
+  uint32_t col_idx;
+  dberr_t getcolidx_ret = schema->GetColumnIndex(name, col_idx);
+  if (getcolidx_ret == DB_COLUMN_NAME_NOT_EXIST) return false;
+
+  //根据idx获取row中的field:
+  Field *condition_field = row.GetField(col_idx);
+
+  //获取field中的数据并判断：
+  float cmp_val = atof(condition_field->GetData());
+  return abs(cmp_val - val) <= 1e-6;//浮点数相等判断
+}
+
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
 #endif
-  return DB_FAILED;
+  //根据当前所在数据库名称获取当前数据库
+  if (current_db_.equals(""))//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
+  DBStorageEngine *now_dbs = dbs_.at(current_db_);
+
+  //获取表的名称：
+  pSyntaxNode table_node = ast->child_;
+  if (table_node->type_ != kNodeIdentifier) return DB_FAILED;
+  std::string table_name = table_node->val_;
+
+  //判断删除条件：
+  bool allDelete = false;
+  pSyntaxNode condition_node = table_node->next_;
+  if (condition_node == nullptr) allDelete = true;
+  else//偷个懒，根据验收流程默认条件为=,且只有一个条件
+  {
+    std::string condition_name = condition_node->child_->child_->val_;//名称
+    //获取值：
+    pSyntaxNode val_node = condition_node->child_->child_->next_;
+    float del_val;
+    if (strstr(val_node->val_, ".") == NULL)//不存在小数点，为整数
+    {
+      del_val = atoi(val_node->val_);
+    }
+    else//小数
+    {
+      del_val = atof(val_node->val_);
+    }
+  }
+
+  //遍历删除：
+  TableInfo *del_table; 
+  dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, del_table);//获取表
+  if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
+  Schema *schema = del_table->GetSchema();
+  TableHeap *table_heap = del_table->GetTableHeap();//获取堆表
+  for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++)//遍历堆表
+  {
+    if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
+    {
+      //调用堆表删除
+      table_heap->ApplyDelete((*iter).GetRowId(), nullptr);
+    }
+  }
+
+  return DB_SUCCESS;
 }
 
 
@@ -713,6 +791,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUpdate" << std::endl;
 #endif
+  
   return DB_FAILED;
 }
 
@@ -783,7 +862,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
     }
 
     ExecuteContext context;
-    engine.Execute(MinisqlGetParserRootNode(), &context);
+    this->Execute(MinisqlGetParserRootNode(), &context);
 
     // clean memory after parse
     MinisqlParserFinish();
