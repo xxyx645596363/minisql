@@ -391,6 +391,21 @@ void printRow(const Row row, const std::vector<std::string> col_names, const boo
   }cout << endl;
 }
 
+void printRowWithpair(const MappingType keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+{
+  //获取rowid:
+  RowId rid = keypair.second;
+  
+  //获取row并输出:
+  Row row(rid);
+  bool gettuple_ret = table_heap->GetTuple(&row, nullptr);
+  if (!gettuple_ret)  std::cout << std::endl;
+  else
+  {
+    printRow(row, col_names, allCol, schema);
+  }
+}
+
 SelectCondition *getConditionByCompare(pSyntaxNode compare_node)
 {
   if (compare_node->type_ != kNodeCompareOperator) return nullptr;
@@ -536,44 +551,72 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   GenericKey<64> genekey;
   genekey.SerializeFromKey(key_row, schema);
   auto key_iter = indexinfo->index_->GetBeginIterator(genekey);
+  auto begin_iter = indexinfo->index_->GetBeginIterator();
+  auto end_iter = indexinfo->index_->GetEndIterator();
 
   //获取table_heap:
   TableHeap *table_heap = indexinfo->GetTableInfo()->GetTableHeap();  
 
   //根据条件不同执行结果
-  //printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+  //void printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+  //void printRowWithpair(const MappingType keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   switch (condition->type_)
   {
   case 0://=
     //获取rowid:
     MappingType keypair = *key_iter;//MappingType std::pair<KeyType, ValueType>
-    RowId rid = keypair.second;
-    
-    //获取row并输出:
-    Row row(rid);
-    bool gettuple_ret = table_heap->GetTuple(&row, nullptr);
-    if (!gettuple_ret)  std::cout << std::endl;
-    else
+    printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+    break;
+  case 1://!=
+    for (auto iter = begin_iter; iter != end_iter; iter++)
     {
-      printRow(row, col_names, allCol, schema);
+      if (iter == key_iter) continue;//跳过等于的row
+      //获取rowid:
+      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
   case 2://<
-    
+    for (auto iter = begin_iter; iter != key_iter; iter++)
+    {
+      //获取rowid:
+      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+    }
     break;
   case 3://>
-    
+    auto iter = key_iter;
+    iter++;
+    for (; iter != end_iter; iter++)
+    {
+      //获取rowid:
+      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+    }
     break;
   case 4://<=
-    
+    for (auto iter = begin_iter; iter != end_iter; iter++)
+    {
+      //获取rowid:
+      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      if (iter == key_iter) break;
+    }
     break;
   case 5://>=
-    
+    for (auto iter = key_iter; iter != end_iter; iter++)
+    {
+      //获取rowid:
+      MappingType keypair = *iter;//MappingType std::pair<KeyType, ValueType>
+      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      if (iter == key_iter) break;
+    }
     break;
-
   default:
+    return DB_FAILED;
     break;
   }
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
@@ -657,6 +700,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   return DB_FAILED;
 }
 
+
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDelete" << std::endl;
@@ -664,12 +708,14 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   return DB_FAILED;
 }
 
+
 dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUpdate" << std::endl;
 #endif
   return DB_FAILED;
 }
+
 
 dberr_t ExecuteEngine::ExecuteTrxBegin(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
@@ -696,7 +742,61 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteExecfile" << std::endl;
 #endif
-  return DB_FAILED;
+  pSyntaxNode ast_son = ast->child_;
+  if (ast_son->type_ != kNodeString) return DB_FAILED;//检查语义
+  std::string file_name = ast_son->val_, file_path = "../../build/";
+  file_name = file_path + file_name;
+  ifstream fin;
+  fin.open(file_name.c_str(), ios::in);
+  
+  //强行copy main：
+  const int buf_size = 1024;
+  char cmd[buf_size];
+  while (1) {
+    fin.getline(cmd, buf_size);
+    if (fin.eof()) break;//读到文件结束，break
+
+    // create buffer for sql input
+    YY_BUFFER_STATE bp = yy_scan_string(cmd);
+    if (bp == nullptr) {
+      LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
+      exit(1);
+    }
+    yy_switch_to_buffer(bp);
+
+    // init parser module
+    MinisqlParserInit();
+
+    // parse
+    yyparse();
+
+    // parse result handle
+    if (MinisqlParserGetError()) {
+      // error
+      printf("%s\n", MinisqlParserGetErrorMessage());
+    } else {
+//#ifdef ENABLE_PARSER_DEBUG
+      // printf("[INFO] Sql syntax parse ok!\n");
+      // SyntaxTreePrinter printer(MinisqlGetParserRootNode());
+      // printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
+//#endif
+    }
+
+    ExecuteContext context;
+    engine.Execute(MinisqlGetParserRootNode(), &context);
+
+    // clean memory after parse
+    MinisqlParserFinish();
+    yy_delete_buffer(bp);
+    yylex_destroy();
+
+    // quit condition
+    if (context.flag_quit_) {
+      printf("bye!\n");
+      break;
+    }
+
+  }
 }
 
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {

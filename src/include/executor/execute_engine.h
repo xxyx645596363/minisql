@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <iomanip>
 #include <stdlib.h>
+#include <fstream>
 #include "common/dberr.h"
 #include "common/instance.h"
 #include "transaction/transaction.h"
