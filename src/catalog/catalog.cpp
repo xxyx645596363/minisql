@@ -98,10 +98,9 @@ CatalogManager::CatalogManager(BufferPoolManager *buffer_pool_manager, LockManag
 
 CatalogManager::~CatalogManager() {
   char * buf ;//= buffer_pool_manager_->FetchPage(CATALOG_META_PAGE_ID)->GetData();
-  //char * buf_for_catalog_meta = buf;
-  //buf += catalog_meta_->GetSerializedSize();
-  //reserve space, put catalogmeta at first
-  
+  // char * buf_for_catalog_meta = buf;
+  // buf += catalog_meta_->GetSerializedSize();
+  // reserve space, put catalogmeta at first
   table_id_t table_id;
   page_id_t page_id;
   TableInfo * table_info;
@@ -111,10 +110,8 @@ CatalogManager::~CatalogManager() {
     buf = buffer_pool_manager_->NewPage(page_id)->GetData();
     table_info->TableSerialize(buf);
     buffer_pool_manager_->UnpinPage(page_id, true);
-    // cout<<"table "<<table_id<<" page at "<<page_id<<endl;
     catalog_meta_->table_meta_pages_[table_id]=page_id;
-    // catalog_meta_->table_meta_pages_.emplace(make_pair(table_id, page_id));
-    // cout<<"page of table 0 "<<catalog_meta_->table_meta_pages_[0]<<endl;
+    // // catalog_meta_->table_meta_pages_.emplace(make_pair(table_id, page_id));
   
   }
 
@@ -141,8 +138,9 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
   if(GetTable(table_name, table_info) != DB_TABLE_NOT_EXIST){
     table_info = nullptr;
     return DB_TABLE_ALREADY_EXIST;
-  }	                               
-  next_table_id_ = catalog_meta_->GetNextTableId();
+  }
+  // next_table_id_ = catalog_meta_->GetNextTableId();
+  next_table_id_ = tables_.size();
   table_names_[table_name] = next_table_id_;
   
   TableHeap * table_heap = TableHeap::Create(buffer_pool_manager_, schema, nullptr, log_manager_, lock_manager_, heap_);
@@ -150,14 +148,28 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
   table_heap->GetFirstPageId(), schema, heap_, prim_idx);
   table_info = TableInfo::Create(heap_);
   table_info->Init(table_meta, table_heap);
-  
+
   tables_[next_table_id_] = table_info;
 
+// //serialize to catalog meta
+//     page_id_t table_meta_page_id;
+//     char * buf = buffer_pool_manager_->NewPage(table_meta_page_id)->GetData();
+//     table_info->TableSerialize(buf);
+//     buffer_pool_manager_->UnpinPage(table_meta_page_id, true);
+//     catalog_meta_->table_meta_pages_[next_table_id_]=table_meta_page_id;
+
+//     buf = buffer_pool_manager_->FetchPage(CATALOG_META_PAGE_ID)->GetData();
+//     catalog_meta_->SerializeTo(buf);
+//     if(FlushCatalogMetaPage()==DB_FAILED) return DB_FAILED;
+//     buffer_pool_manager_->UnpinPage(CATALOG_META_PAGE_ID, true);
   return DB_SUCCESS;
 }
 
 dberr_t CatalogManager::GetTable(const string &table_name, TableInfo *&table_info) {
   table_info = nullptr;
+  // for(auto iter = table_names_.begin(); iter != table_names_.end(); iter++){
+  //   cout<<iter->first<<" "<<iter->second<<endl;
+  // }
   auto iter1 = table_names_.find(table_name);
   if (iter1 == table_names_.end()){
     return DB_TABLE_NOT_EXIST;
@@ -182,7 +194,8 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
 dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string &index_name,
                                     const std::vector<std::string> &index_keys, Transaction *txn,
                                     IndexInfo *&index_info) {
-  next_index_id_ = catalog_meta_->GetNextIndexId();
+  // next_index_id_ = catalog_meta_->GetNextIndexId();
+  next_index_id_ = indexes_.size();
   TableInfo * table_info;
   if(GetTable(table_name, table_info) == DB_TABLE_NOT_EXIST){
     return DB_TABLE_NOT_EXIST;
@@ -216,7 +229,19 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
   // printf("schema key num = %d\n", index_info->GetIndexKeySchema()->GetColumnCount());
   // printf("schema key size = %d\n", index_info->GetIndexKeySchema()->GetSerializedSize());
   indexes_[next_index_id_] = index_info;
-  
+
+// //serialize to catalog meta
+//     page_id_t index_meta_page_id;
+//     char * buf = buffer_pool_manager_->NewPage(index_meta_page_id)->GetData();
+//     index_info->IndexSerialize(buf);
+//     buffer_pool_manager_->UnpinPage(index_meta_page_id,true);
+//     // (catalog_meta_->index_meta_pages_).insert(make_pair(next_index_id_, index_meta_page_id));
+//     catalog_meta_->index_meta_pages_[next_index_id_]=index_meta_page_id;
+
+//     buf = buffer_pool_manager_->FetchPage(CATALOG_META_PAGE_ID)->GetData();
+//     catalog_meta_->SerializeTo(buf);
+//     if(FlushCatalogMetaPage()==DB_FAILED) return DB_FAILED;
+//     buffer_pool_manager_->UnpinPage(CATALOG_META_PAGE_ID, true);
   return DB_SUCCESS;
 }
 
@@ -248,7 +273,7 @@ dberr_t CatalogManager::GetTableIndexes(const std::string &table_name, std::vect
   }
   IndexInfo * index_info;
   for(auto iter = iter1->second.begin(); iter != iter1->second.end(); iter++){
-    if(GetIndex(table_name, iter->first, index_info) == DB_FAILED){
+    if(GetIndex(table_name, iter->first, index_info) != DB_SUCCESS){
       return DB_FAILED;
     }
     indexes.emplace_back(index_info);

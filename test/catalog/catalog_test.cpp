@@ -59,6 +59,23 @@ TEST(CatalogTest, CatalogTableTest) {
   ASSERT_EQ(table_info, table_info_02);
   auto *table_heap = table_info->GetTableHeap();
   ASSERT_TRUE(table_heap != nullptr);
+
+  std::vector<Column *> columns_new = {
+          ALLOC_COLUMN(heap)("newid", TypeId::kTypeInt, 0, false, false),
+          ALLOC_COLUMN(heap)("newname", TypeId::kTypeChar, 64, 1, true, false),
+          // ALLOC_COLUMN(heap)("hometown", TypeId::kTypeChar, 64, 1, true, false),
+          ALLOC_COLUMN(heap)("newaccount", TypeId::kTypeFloat, 2, true, false)
+  };
+  auto schema_1 = std::make_shared<Schema>(columns_new);
+  TableInfo *table_info_04 = nullptr;
+  catalog_01->CreateTable("table-3", schema_1.get(), &txn, table_info_04, 0);
+  ASSERT_TRUE(table_info_04 != nullptr);
+  TableInfo *table_info_05 = nullptr;
+  ASSERT_EQ(DB_SUCCESS, catalog_01->GetTable("table-3", table_info_05));
+  
+  ASSERT_EQ(table_info_04, table_info_05);
+  auto *table_heap_new = table_info_04->GetTableHeap();
+  ASSERT_TRUE(table_heap_new != nullptr);
   delete db_01;
   /** Stage 2: Testing catalog loading */
   auto db_02 = new DBStorageEngine(db_file_name, false);
