@@ -106,7 +106,7 @@ uint32_t TypeInt::GetSerializedSize(const Field &field, bool is_null) const {
 }
 
 const char *TypeInt::GetData(const Field &val) const {
-  char char_val[100];
+  char *char_val = new char[100];
   sprintf(char_val, "%d", val.value_.integer_);
   return char_val;
 }
@@ -187,7 +187,7 @@ uint32_t TypeFloat::GetSerializedSize(const Field &field, bool is_null) const {
 }
 
 const char *TypeFloat::GetData(const Field &val) const {
-  char char_val[100];
+  char *char_val = new char[100];
   sprintf(char_val, "%lf", val.value_.float_);
   return char_val;
 }

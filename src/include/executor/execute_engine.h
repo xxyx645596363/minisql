@@ -16,6 +16,8 @@
 #include "utils/tree_file_mgr.h"
 
 extern "C" {
+int yyparse(void);
+#include "parser/minisql_lex.h"
 #include "parser/parser.h"
 };
 

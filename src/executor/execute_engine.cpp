@@ -568,9 +568,10 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   Row key_row(fields);
   GenericKey<64> genekey;
   genekey.SerializeFromKey(key_row, schema);
-  auto key_iter = indexinfo->GetIndex()->GetBeginIterator(genekey);
-  auto begin_iter = indexinfo->GetIndex()->GetBeginIterator();
-  auto end_iter = indexinfo->GetIndex()->GetEndIterator();
+  
+  auto key_iter = reinterpret_cast<BPlusTreeIndex<GenericKey<64>, RowId, GenericComparator<64>> *>(indexinfo->GetIndex())->GetBeginIterator(genekey);
+  auto begin_iter = reinterpret_cast<BPlusTreeIndex<GenericKey<64>, RowId, GenericComparator<64>> *>(indexinfo->GetIndex())->GetBeginIterator();
+  auto end_iter = reinterpret_cast<BPlusTreeIndex<GenericKey<64>, RowId, GenericComparator<64>> *>(indexinfo->GetIndex())->GetEndIterator();
 
   //获取table_heap:
   TableHeap *table_heap = indexinfo->GetTableInfo()->GetTableHeap();  
@@ -578,54 +579,53 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   //根据条件不同执行结果
   //void printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   //void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+  Mapping_Type keypair;
   switch (condition->type_)
   {
   case 0://=
     //获取rowid:
-    Mapping_Type keypair = *key_iter;//Mapping_Type std::pair<KeyType, ValueType>
+    keypair = *key_iter;//Mapping_Type std::pair<KeyType, ValueType>
     printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     break;
   case 1://!=
-    for (auto iter = begin_iter; iter != end_iter; iter++)
+    for (auto iter = begin_iter; iter != end_iter; ++iter)
     {
       if (iter == key_iter) continue;//跳过等于的row
       //获取rowid:
-      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
   case 2://<
-    for (auto iter = begin_iter; iter != key_iter; iter++)
+    for (auto iter = begin_iter; iter != key_iter; ++iter)
     {
       //获取rowid:
-      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
   case 3://>
-    auto iter = key_iter;
-    iter++;
-    for (; iter != end_iter; iter++)
+    for (auto iter3 = ++key_iter; iter3 != end_iter; ++iter3)
     {
       //获取rowid:
-      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      keypair = *iter3;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
     }
     break;
   case 4://<=
-    for (auto iter = begin_iter; iter != end_iter; iter++)
+    for (auto iter = begin_iter; iter != end_iter; ++iter)
     {
       //获取rowid:
-      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
       if (iter == key_iter) break;
     }
     break;
   case 5://>=
-    for (auto iter = key_iter; iter != end_iter; iter++)
+    for (auto iter = key_iter; iter != end_iter; ++iter)
     {
       //获取rowid:
-      Mapping_Type keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, schema);
       if (iter == key_iter) break;
     }
@@ -758,9 +758,9 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
       fields.push_back(Field(kTypeInt, atoi(val_node->val_)));
       break;
     case kTypeFloat:
-      fields.push_back(Field(kTypeFloat, atof(val_node->val_)));
+      fields.push_back(Field(kTypeFloat, float(atof(val_node->val_))));
       break;
-    case kTypeInt:
+    case kTypeChar:
       fields.push_back(Field(kTypeChar, val_node->val_, strlen(val_node->val_), true));
       break;
     default:
@@ -938,6 +938,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
     }
 
   }
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
