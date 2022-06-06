@@ -21,7 +21,7 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
       root_page_id_ = oldroot;
     }
   }
-  buffer_pool_manager_->UnpinPage(index_id, true);
+  buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, true);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
