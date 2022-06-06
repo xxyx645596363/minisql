@@ -5,6 +5,7 @@
 #include <cmath>
 #include <exception>
 #include <cstdio>
+#include <iostream>
 #include "record/type_id.h"
 #include "common/config.h"
 #include "utils/mem_heap.h"

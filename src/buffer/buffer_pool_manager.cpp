@@ -56,6 +56,7 @@ Page *BufferPoolManager::FetchPage(page_id_t page_id) {
 }
 
 Page *BufferPoolManager::NewPage(page_id_t &page_id) {
+  std:: cout << "BufferPoolManager::NewPage......................................\n";
   // 0.   Make sure you call AllocatePage!
    
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.

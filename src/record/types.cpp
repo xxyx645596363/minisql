@@ -188,7 +188,7 @@ uint32_t TypeFloat::GetSerializedSize(const Field &field, bool is_null) const {
 
 const char *TypeFloat::GetData(const Field &val) const {
   char *char_val = new char[100];
-  sprintf(char_val, "%lf", val.value_.float_);
+  sprintf(char_val, "%.2f", val.value_.float_);
   return char_val;
 }
 
@@ -211,8 +211,10 @@ CmpBool TypeFloat::CompareNotEquals(const Field &left, const Field &right) const
 CmpBool TypeFloat::CompareLessThan(const Field &left, const Field &right) const {
   ASSERT(left.CheckComparable(right), "Not comparable.");
   if (left.IsNull() || right.IsNull()) {
+    // std::cout << "CompareLessThan: null" << std::endl;
     return CmpBool::kNull;
   }
+  // std::cout << "CompareLessThan: " << left.value_.float_ << " " << right.value_.float_ << std::endl;
   return GetCmpBool(left.value_.float_ < right.value_.float_);
 }
 

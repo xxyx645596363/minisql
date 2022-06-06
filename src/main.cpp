@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
     clock_t start_time = clock();
 
     ExecuteContext context;
-    engine.Execute(MinisqlGetParserRootNode(), &context);
-
+    dberr_t ret = engine.Execute(MinisqlGetParserRootNode(), &context);
+    if (ret != DB_SUCCESS) cout << "EXECUTE_FAILED!!!!\n";
     clock_t end_time = clock();
     double execute_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
     cout << "EXECUTE TIME: " << execute_time << endl;
