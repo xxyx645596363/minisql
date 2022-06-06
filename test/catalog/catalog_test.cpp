@@ -85,7 +85,6 @@ TEST(CatalogTest, CatalogIndexTest) {
   Transaction txn;
   catalog_01->CreateTable("table-1", schema.get(), &txn, table_info,0);
   ASSERT_TRUE(table_info != nullptr);
-
   IndexInfo *index_info = nullptr;
   std::vector<std::string> bad_index_keys{"id", "age", "name"};
   std::vector<std::string> index_keys{"id", "name"};
@@ -117,7 +116,6 @@ TEST(CatalogTest, CatalogIndexTest) {
     ASSERT_EQ(rid.Get(), ret[i].Get());
   }
   delete db_01;
-  puts("1");
   /** Stage 2: Testing catalog loading */
   auto db_02 = new DBStorageEngine(db_file_name, false);
   auto &catalog_02 = db_02->catalog_mgr_;

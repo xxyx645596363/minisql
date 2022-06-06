@@ -190,8 +190,6 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
   if(index_names_[table_name].find(index_name) != index_names_[table_name].end()){
     return DB_INDEX_ALREADY_EXIST;
   }
-  puts("not found");
-
   
   Schema * table_schema = table_info->GetSchema();
   std::vector<uint32_t> key_map;

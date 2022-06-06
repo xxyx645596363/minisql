@@ -93,9 +93,7 @@ void IndexInfo::Init(IndexMetadata *meta_data, TableInfo *table_info, BufferPool
     // 这里的key_schema_可以通过Schema::ShallowCopySchema来创建，
     // 且key_schema_中包含的列与TableSchema中的列共享同一份存储。
     TableSchema * tableschema = table_info_->GetSchema();
-  printf("table schema size %d\n",tableschema ->GetColumnCount());
-  cout<<"table schema 0 named "<<tableschema->GetColumn(0)->GetName()<<" "<<tableschema->GetColumn(0)->GetLength()<<endl;
-  
+
     // uint32_t columncount = tableschema->GetColumnCount();
     vector<uint32_t> attrs;
     // for(uint32_t i=0; i<columncount; i++)
@@ -106,8 +104,6 @@ void IndexInfo::Init(IndexMetadata *meta_data, TableInfo *table_info, BufferPool
     //按照attrs里标记的顺序，把table_schema的列进行浅拷贝并返回
     
     key_schema_ = Schema::ShallowCopySchema(tableschema, attrs, heap_);
-  printf("key schema size %d\n",key_schema_ ->GetColumnCount());
-  cout<<"ket schema 0 named "<<key_schema_->GetColumn(0)->GetName()<<" "<<key_schema_->GetColumn(0)->GetLength()<<endl;
   
     //这里attr应该是（0，1，2，3...）但是到多少呢？
     // Step3: call CreateIndex to create the index
