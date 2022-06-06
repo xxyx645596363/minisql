@@ -63,6 +63,10 @@ public:
     table_heap_ = table_heap;
   }
 
+  void TableSerialize(char * &buf){
+    table_meta_->SerializeTo(buf);
+  }
+
   inline TableHeap *GetTableHeap() const { return table_heap_; }
 
   inline MemHeap *GetMemHeap() const { return heap_; }

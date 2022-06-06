@@ -32,7 +32,7 @@ void DiskManager::Close() {
 }
 
 void DiskManager::ReadPage(page_id_t logical_page_id, char *page_data) {
-  std::cout << "DiskManager::ReadPage logical_page_id: " << logical_page_id << std::endl;
+  // std::cout << "DiskManager::ReadPage logical_page_id: " << logical_page_id << std::endl;
   ASSERT(logical_page_id >= 0, "Invalid page id.");
   ReadPhysicalPage(MapPageId(logical_page_id), page_data);
 }

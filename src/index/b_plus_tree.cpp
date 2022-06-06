@@ -14,14 +14,14 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
           leaf_max_size_(leaf_max_size),
           internal_max_size_(internal_max_size) {
   root_page_id_ = INVALID_PAGE_ID;
-  IndexRootsPage *page = reinterpret_cast<IndexRootsPage *>(buffer_pool_manager_->FetchPage(index_id)->GetData());
+  IndexRootsPage *page = reinterpret_cast<IndexRootsPage *>(buffer_pool_manager_->FetchPage(INDEX_ROOTS_PAGE_ID )->GetData());
   if (page != nullptr) {
     page_id_t oldroot = INVALID_PAGE_ID;
     if(page->GetRootId(index_id, &oldroot)){
       root_page_id_ = oldroot;
     }
   }
-  buffer_pool_manager_->UnpinPage(index_id, true);
+  buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, true);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -98,7 +98,7 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   B_PLUS_TREE_LEAF_PAGE_TYPE *root = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(page->GetData());
   root->Init(newid, INVALID_PAGE_ID, leaf_max_size_);
   root_page_id_ = newid;
-  UpdateRootPageId();
+  UpdateRootPageId(1);
   root->Insert(key, value, comparator_);
   buffer_pool_manager_->UnpinPage(newid, true);
   //printf(":%d %d\n", root->IsLeafPage(), root->IsRootPage());
