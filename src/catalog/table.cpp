@@ -77,8 +77,9 @@ uint32_t TableMetadata::DeserializeFrom(char *buf, TableMetadata *&table_meta, M
 TableMetadata *TableMetadata::Create(table_id_t table_id, std::string table_name,
                                      page_id_t root_page_id, TableSchema *schema, MemHeap *heap, uint32_t prim_idx) {
   // allocate space for table metadata
+  Schema * copy_schema = Schema::DeepCopySchema(schema, heap); 
   void *buf = heap->Allocate(sizeof(TableMetadata));
-  return new(buf)TableMetadata(table_id, table_name, root_page_id, schema, prim_idx);
+  return new(buf)TableMetadata(table_id, table_name, root_page_id, copy_schema, prim_idx);
 }
 
 TableMetadata::TableMetadata(table_id_t table_id, std::string table_name, page_id_t root_page_id, TableSchema *schema, uint32_t prim_idx)
