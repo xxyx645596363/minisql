@@ -3,11 +3,13 @@
 //wsx_start1
 
 bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
+  std::cout << "TableHeap::InsertTuple first_page_id_: " << first_page_id_ << std::endl;
   //check if some current pages are enough for the new row
   page_id_t this_page_id = first_page_id_;
+  TablePage *this_page;
   for (; this_page_id != INVALID_PAGE_ID; )
   {
-    auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
+    this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
     if (this_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
     {
       buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
@@ -19,19 +21,20 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
     this_page_id = next_page_id;
   }
 
-  //all current pages are not enough for the new row, so we need to create a new page and insert it into the double link list
+  // all current pages are not enough for the new row, so we need to create a new page and insert it into the double link list
   page_id_t new_page_id;
   auto new_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(new_page_id));
-  new_page->Init(new_page_id, this_page_id, log_manager_, txn);
+  new_page->Init(new_page_id, INVALID_PAGE_ID, log_manager_, txn);
+  new_page->SetNextPageId(first_page_id_);
   if (new_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
   {
-    //insert it into the double link list
-    if (this_page_id != INVALID_PAGE_ID) {
-      auto end_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
-      end_page->SetNextPageId(new_page_id);
-      buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
+    //insert it into the !!head!! of double link list
+    if (first_page_id_ != INVALID_PAGE_ID) {//当前有page存在
+      this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));
+      this_page->SetPrevPageId(new_page_id);
+      buffer_pool_manager_->UnpinPage(first_page_id_, true);//将该页unpin
     }
-    else  first_page_id_ = new_page_id; 
+    first_page_id_ = new_page_id; 
     buffer_pool_manager_->UnpinPage(new_page_id, true);//将该页unpin
     return true;
   }

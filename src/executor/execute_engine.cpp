@@ -829,21 +829,21 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   Row ins_row(fields);
   if (!(table_heap->InsertTuple(ins_row, nullptr))) return DB_FAILED;
   
-  //获取rowid,插入索引的B+树：
-  vector<IndexInfo *> indexes;
-  if (now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes) != DB_SUCCESS) return DB_FAILED;
-  for (uint32_t i = 0; i < indexes.size(); i++)
-  {
-    auto index = indexes[i]->GetIndex();
-    Schema *key_schema = indexes[i]->GetIndexKeySchema();
-    vector<Field> index_fields;
-    string col_name = key_schema->GetColumn(0)->GetName();
-    uint32_t col_idx;
-    if (schema->GetColumnIndex(col_name, col_idx) != DB_SUCCESS) return DB_FAILED;
-    index_fields.push_back(fields[col_idx]);
-    Row key_row(index_fields);
-    if (index->InsertEntry(key_row, ins_row.GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
-  }
+  // //获取rowid,插入索引的B+树：
+  // vector<IndexInfo *> indexes;
+  // if (now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes) != DB_SUCCESS) return DB_FAILED;
+  // for (uint32_t i = 0; i < indexes.size(); i++)
+  // {
+  //   auto index = indexes[i]->GetIndex();
+  //   Schema *key_schema = indexes[i]->GetIndexKeySchema();
+  //   vector<Field> index_fields;
+  //   string col_name = key_schema->GetColumn(0)->GetName();
+  //   uint32_t col_idx;
+  //   if (schema->GetColumnIndex(col_name, col_idx) != DB_SUCCESS) return DB_FAILED;
+  //   index_fields.push_back(fields[col_idx]);
+  //   Row key_row(index_fields);
+  //   if (index->InsertEntry(key_row, ins_row.GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
+  // }
   return DB_SUCCESS;
 }
 
