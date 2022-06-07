@@ -447,11 +447,8 @@ void printRow(const Row row, const std::vector<std::string> col_names, const boo
   }cout << endl;
 }
 
-void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
+void printRowWithRid(const RowId &rid, TableHeap *table_heap, const std::vector<std::string> &col_names, const bool allCol, const Schema *schema)
 {
-  //获取rowid:
-  RowId rid = keypair.second;
-  
   //获取row并输出:
   Row row(rid);
   bool gettuple_ret = table_heap->GetTuple(&row, nullptr);
@@ -460,6 +457,22 @@ void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const s
   {
     printRow(row, col_names, allCol, schema);
   }
+}
+
+void printRowWithpair(const Mapping_Type &keypair, TableHeap *table_heap, const std::vector<std::string> &col_names, const bool allCol, const Schema *schema)
+{
+  //获取rowid:
+  RowId rid = keypair.second;
+  
+  printRowWithRid(rid, table_heap, col_names, allCol, schema);
+  // //获取row并输出:
+  // Row row(rid);
+  // bool gettuple_ret = table_heap->GetTuple(&row, nullptr);
+  // if (!gettuple_ret)  std::cout << std::endl;
+  // else
+  // {
+  //   printRow(row, col_names, allCol, schema);
+  // }
 }
 
 SelectCondition *getConditionByCompare(pSyntaxNode compare_node, Schema *schema)
@@ -625,6 +638,64 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
 
   //构建row和GenericKey,默认用64的大小,从而获取相应的迭代器:
   Row key_row(fields);
+  
+  // vector::<RowId> rids;
+  // indexinfo->GetIndex()->ScanKey(key_row, rids, nullptr);
+
+  // Schema * printschema = indexinfo->GetTableInfo()->GetSchema();
+  // switch (condition->type_)
+  // {
+  // case 0://=
+  //   printRowWithRid(rids[0], table_heap, col_names, allCol, printschema);
+  //   break;
+  // case 1://!=
+  //   for (auto iter = begin_iter; iter != end_iter; ++iter)
+  //   {
+  //     if (iter == key_iter) continue;//跳过等于的row
+  //     //获取rowid:
+  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
+  //   }
+  //   break;
+  // case 2://<
+  //   for (auto iter = begin_iter; iter != key_iter; ++iter)
+  //   {
+  //     //获取rowid:
+  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
+  //   }
+  //   break;
+  // case 3://>
+  //   for (auto iter3 = ++key_iter; iter3 != end_iter; ++iter3)
+  //   {
+  //     //获取rowid:
+  //     keypair = *iter3;//Mapping_Type std::pair<KeyType, ValueType>
+  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
+  //   }
+  //   break;
+  // case 4://<=
+  //   for (auto iter = begin_iter; iter != end_iter; ++iter)
+  //   {
+  //     //获取rowid:
+  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
+  //     if (iter == key_iter) break;
+  //   }
+  //   break;
+  // case 5://>=
+  //   for (auto iter = key_iter; iter != end_iter; ++iter)
+  //   {
+  //     //获取rowid:
+  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
+  //     if (iter == key_iter) break;
+  //   }
+  //   break;
+  // default:
+  //   return DB_FAILED;
+  //   break;
+  // }
+  
   GenericKey<64> genekey;
   genekey.SerializeFromKey(key_row, schema);
   
@@ -639,13 +710,13 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   //void printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   //void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   Mapping_Type keypair;
-  Schema * printschema = ;
+  Schema * printschema = indexinfo->GetTableInfo()->GetSchema();
   switch (condition->type_)
   {
   case 0://=
     //获取rowid:
     keypair = *key_iter;//Mapping_Type std::pair<KeyType, ValueType>
-    printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+    printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
     break;
   case 1://!=
     for (auto iter = begin_iter; iter != end_iter; ++iter)
@@ -653,7 +724,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
       if (iter == key_iter) continue;//跳过等于的row
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
     }
     break;
   case 2://<
@@ -661,7 +732,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     {
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
     }
     break;
   case 3://>
@@ -669,7 +740,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     {
       //获取rowid:
       keypair = *iter3;//Mapping_Type std::pair<KeyType, ValueType>
-      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
     }
     break;
   case 4://<=
@@ -677,7 +748,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     {
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
       if (iter == key_iter) break;
     }
     break;
@@ -686,7 +757,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     {
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-      printRowWithpair(keypair, table_heap, col_names, allCol, schema);
+      printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
       if (iter == key_iter) break;
     }
     break;
@@ -856,8 +927,11 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
 
   //根据field数组创建row,并插入到堆表
   Row *ins_row = new Row(fields);
-  if (!(table_heap->InsertTuple(*ins_row, nullptr))) return DB_FAILED;
-  delete ins_row;
+  if (!(table_heap->InsertTuple(*ins_row, nullptr)))
+  {
+    delete ins_row;
+    return DB_FAILED;
+  } 
 
   //获取rowid,插入索引的B+树：
   vector<IndexInfo *> indexes;
@@ -870,6 +944,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     Row key_row(index_fields);
     if (index->InsertEntry(key_row, ins_row->GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
   }
+  delete ins_row;
   return DB_SUCCESS;
 }
 
