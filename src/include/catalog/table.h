@@ -2,7 +2,7 @@
 #define MINISQL_TABLE_H
 
 #include <memory>
-
+#include <unordered_map>
 #include "glog/logging.h"
 #include "record/schema.h"
 #include "storage/table_heap.h"
@@ -80,6 +80,11 @@ public:
   inline page_id_t GetRootPageId() const { return table_meta_->root_page_id_; }
 
   inline uint32_t GetPrimIdx() const { return table_meta_->GetPrimIdx(); }
+
+  std::unordered_map<uint32_t, uint32_t> primmap;
+  uint32_t prim_idx = 0;
+  std::unordered_map<std::string, uint32_t> uniquemap;
+  uint32_t unique_idx = 0;
 
 private:
   explicit TableInfo() : heap_(new SimpleMemHeap()) {};

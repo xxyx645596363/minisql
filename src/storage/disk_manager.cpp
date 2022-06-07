@@ -100,11 +100,17 @@ void DiskManager::DeAllocatePage(page_id_t logical_page_id) {
 bool DiskManager::IsPageFree(page_id_t logical_page_id) {
   uint32_t i_extent = logical_page_id / 3;
   uint32_t pi_bitmap = i_extent * (BITMAP_SIZE + 1) + 1; //the Physica id of bitmap page
-  char *bitmap_data = (char *)malloc(PAGE_SIZE);
+  char bitmap_data[PAGE_SIZE];
   ReadPhysicalPage(pi_bitmap, bitmap_data);
   auto *mapPage = reinterpret_cast<BitmapPage<PAGE_SIZE> *>(bitmap_data);
-  if (mapPage->IsPageFree(logical_page_id % BITMAP_SIZE)) return true;
-  else return false;
+  if (mapPage->IsPageFree(logical_page_id % BITMAP_SIZE))
+  {
+    return true;
+  } 
+  else
+  {
+    return false;
+  } 
 }
 
 page_id_t DiskManager::MapPageId(page_id_t logical_page_id) {

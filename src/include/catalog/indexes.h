@@ -33,6 +33,8 @@ public:
 
   inline index_id_t GetIndexId() const { return index_id_; }
 
+  uint32_t GetColIndex(uint32_t i) { return key_map_[i]; }
+
 private:
   IndexMetadata() = delete;
 
@@ -82,6 +84,8 @@ public:
 
   inline TableInfo *GetTableInfo() const { return table_info_; }
 
+  uint32_t GetColIndex(uint32_t i) { return meta_data_->GetColIndex(i); }
+
 private:
   explicit IndexInfo() : meta_data_{nullptr}, index_{nullptr}, table_info_{nullptr},
                          key_schema_{nullptr}, heap_(new SimpleMemHeap()) {}
@@ -91,20 +95,20 @@ private:
     // void * buf = heap_->Allocate(sizeof(BPlusTreeIndex<GenericKey<4>, RowId, GenericComparator<4>>));
     // index = new(buf)BPlusTreeIndex<GenericKey<64>, RowId, GenericComparator<64>>(meta_data_->index_id_,key_schema_, buffer_pool_manager);
     BP_TREE_INDEX * index = ALLOC_P(heap_, BP_TREE_INDEX)(meta_data_->index_id_,key_schema_, buffer_pool_manager);
-    // TableHeap * table_heap;
-    // table_heap = table_info_->GetTableHeap();
-    // for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++) {
-    //     // printf("size of table_heap i = %d\n", ++cnt);
-    //     const Row &row = *iter;
-    //     std::vector<Field> new_fields;
-    //     uint32_t idx;
-    //     for(auto iter2 = meta_data_->key_map_.begin();iter2!=meta_data_->key_map_.end();iter2++){
-    //       idx = *iter2;
-    //       new_fields.emplace_back(*(row.GetField(idx)));
-    //     }
-    //     Row new_row(new_fields);
-    //     index->InsertEntry(new_row, row.GetRowId(), nullptr);
-    // }
+    TableHeap * table_heap;
+    table_heap = table_info_->GetTableHeap();
+    for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter) {
+        // printf("size of table_heap i = %d\n", ++cnt);
+        const Row &row = *iter;
+        std::vector<Field> new_fields;
+        uint32_t idx;
+        for(auto iter2 = meta_data_->key_map_.begin();iter2!=meta_data_->key_map_.end();iter2++){
+          idx = *iter2;
+          new_fields.emplace_back(*(row.GetField(idx)));
+        }
+        Row new_row(new_fields);
+        index->InsertEntry(new_row, row.GetRowId(), nullptr);
+    }
     return index;
   }
 

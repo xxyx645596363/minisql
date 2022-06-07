@@ -70,7 +70,7 @@ TEST(TableHeapTest, TableHeapSampleTest) {
   // std::cout << "out table_heap_test *it.GetRowId().GetPageId(): " << (*it).GetRowId().GetPageId() << endl;
   // std::cout << "out table_heap_test it->GetRowId().GetPageId(): " << it->GetRowId().GetPageId() << endl;
   // TableIterator it = table_heap->End();
-  for(;it!=table_heap->End();it++){
+  for(;it!=table_heap->End();++it){
     // std::cout << "table_heap_test for_iter\n";
     if(it->GetRowId().GetPageId() == 5 && it->GetRowId().GetSlotNum() == 20) delete_success = false;
     if(it->GetRowId().GetPageId() == 3 && it->GetRowId().GetSlotNum() == 23){

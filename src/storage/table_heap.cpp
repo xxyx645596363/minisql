@@ -3,9 +3,9 @@
 //wsx_start1
 
 bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
-  std::cout << "TableHeap::InsertTuple first_page_id_: " << first_page_id_ << std::endl;
+  // std::cout << "TableHeap::InsertTuple first_page_id_: " << first_page_id_ << std::endl;
   //check if some current pages are enough for the new row
-  page_id_t this_page_id = first_page_id_;
+  page_id_t this_page_id = first_page_id_, next_page_id;
   TablePage *this_page;
   for (; this_page_id != INVALID_PAGE_ID; )
   {
@@ -15,7 +15,7 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
       buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
       return true;
     }
-    page_id_t next_page_id = this_page->GetNextPageId();
+    next_page_id = this_page->GetNextPageId();
     buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
     if (next_page_id == INVALID_PAGE_ID) break;
     this_page_id = next_page_id;

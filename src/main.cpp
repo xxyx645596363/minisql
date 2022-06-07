@@ -63,11 +63,11 @@ int main(int argc, char **argv) {
       // error
       printf("%s\n", MinisqlParserGetErrorMessage());
     } else {
-//#ifdef ENABLE_PARSER_DEBUG
+#ifdef ENABLE_PARSER_DEBUG
       printf("[INFO] Sql syntax parse ok!\n");
       SyntaxTreePrinter printer(MinisqlGetParserRootNode());
       printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
-//#endif
+#endif
     }
 
     //添加计时模块：
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 
     ExecuteContext context;
     dberr_t ret = engine.Execute(MinisqlGetParserRootNode(), &context);
-    if (ret != DB_SUCCESS) cout << "EXECUTE_FAILED!!!!\n";
+    if (ret != DB_SUCCESS) cout << "EXECUTE_FAILED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
     clock_t end_time = clock();
     double execute_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
     cout << "EXECUTE TIME: " << execute_time << endl;

@@ -138,6 +138,12 @@ public:
     std::swap(first.manage_data_, second.manage_data_);
   }
 
+  int32_t GetIntVal() { return value_.integer_; }
+  float GetFloatVal() { return value_.float_; }
+  char *GetCharVal() { return value_.chars_; }
+
+  TypeId GetType() { return type_id_; }
+
 protected:
   union Val {
     int32_t integer_;

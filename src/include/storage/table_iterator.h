@@ -32,7 +32,9 @@ public:
 
   TableIterator &operator++();
 
-  TableIterator operator++(int);
+  // TableIterator operator++(int);
+
+  Row *GetRow() { return row_; }
 
 private:
   // add your own private member variables here

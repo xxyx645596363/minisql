@@ -201,12 +201,12 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   pSyntaxNode col_node;
   for (col_node = ast->child_->next_->child_; col_node->type_ == kNodeColumnDefinition; col_node = col_node->next_, index++)
   {
-    std::cout << "ExecuteCreateTable_for index: " << index << std::endl;
+    // std::cout << "ExecuteCreateTable_for index: " << index << std::endl;
     //获取列的name
     char *col_name = col_node->child_->val_;
     //获取列的type和length
     char *col_type = col_node->child_->next_->val_;
-    std::cout << "ExecuteCreateTable_for col_name col_type: " << col_name << " " << col_type << std::endl;
+    // std::cout << "ExecuteCreateTable_for col_name col_type: " << col_name << " " << col_type << std::endl;
     TypeId col_typeid;
     string col_len_str;
     uint32_t col_len;
@@ -215,7 +215,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     {
     case 'i'://type为int
       col_typeid = kTypeInt;
-      std::cout << "ExecuteCreateTable_for int_type\n";
+      // std::cout << "ExecuteCreateTable_for int_type\n";
       break;
     case 'f'://type为float
       col_typeid = kTypeFloat;
@@ -234,20 +234,20 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
     }
     //获取列的nullable和unique,记录主键index
     bool nullable = true, unique = false;
-    std::cout << "ExecuteCreateTable_for init nullable unique: " << nullable << " " << unique << std::endl;
+    // std::cout << "ExecuteCreateTable_for init nullable unique: " << nullable << " " << unique << std::endl;
     if (prim_name == string(col_name))// 为主键
     {
-      cout << "prim_name == string(col_name)\n";
+      // cout << "prim_name == string(col_name)\n";
       nullable = false;
       unique = true;
       prim_idx = index;
     } 
     if (col_node->val_ != nullptr && !strcmp(col_node->val_, "unique"))//判断为unique
     {
-      cout << "ExecuteCreateTable_for col_node->val_ == unique\n";
+      // cout << "ExecuteCreateTable_for col_node->val_ == unique\n";
       unique = true;
     }
-    std::cout << "ExecuteCreateTable_for nullable unique: " << nullable << " " << unique << std::endl;
+    // std::cout << "ExecuteCreateTable_for nullable unique: " << nullable << " " << unique << std::endl;
 
     //创建column并插入到vector中
     Column *new_column;
@@ -338,6 +338,7 @@ dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *conte
     std::string table_name = tables[i]->GetTableName();//获取table的名字
     std::vector<IndexInfo *> indexes;//vector for indexes in this table;
     now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes);
+    cout << "一共有 " << indexes.size() << " 个索引如下：\n";
     for (long unsigned int j = 0; j < indexes.size(); j++)
     {
       printIndexInfo(indexes[j], table_name);
@@ -392,6 +393,7 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
   pSyntaxNode ast_son = ast->child_;
   if (ast_son->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
   std::string drop_index_name = ast_son->val_;
+  cout << "删除索引名称：" << ast_son->val_ << endl;
 
   //根据当前所在数据库名称获取当前数据库
   if (!current_db_.length())//当前无数据库
@@ -424,7 +426,23 @@ void printRow(const Row row, const std::vector<std::string> col_names, const boo
     {
       if (row.GetField(i)->IsNull())
         cout << setw(20) << setiosflags(ios::left) << "null";  
-      else cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetData();
+      else
+      {
+        switch (row.GetField(i)->GetType())
+        {
+        case kTypeInt:
+          cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetIntVal();
+          break;
+        case kTypeFloat:
+          cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetFloatVal();
+          break;
+        case kTypeChar:
+          cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetCharVal();
+          break;
+        default:
+          break;
+        }
+      } 
     }
   }cout << endl;
 }
@@ -621,6 +639,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   //void printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   //void printRowWithpair(const Mapping_Type keypair, TableHeap *table_heap, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
   Mapping_Type keypair;
+  Schema * printschema = ;
   switch (condition->type_)
   {
   case 0://=
@@ -718,7 +737,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   TableHeap *table_heap = table->GetTableHeap();//获取堆表
   if (condition_node == nullptr)//无条件，输出所有列
   {
-    for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); row_iter++)
+    for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); ++row_iter)
     {
       printRow(*row_iter, col_names, allCol, schema);
     }cout << "................................................................................\n";
@@ -731,7 +750,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     // cout << "ExecuteSelect size select_conditions[0]->type is float: " << select_conditions.size() << " " << (select_conditions[0]->type_id_ == kTypeFloat) << endl;
     if (select_conditions.size() == 2)//多条件查询，直接遍历
     {
-      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); row_iter++)
+      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); ++row_iter)
       {
         if (checkCondition(select_conditions, *row_iter, schema))
           printRow(*row_iter, col_names, allCol, schema);
@@ -751,11 +770,12 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       {
         if (checkIndexSameWithCondition(indexes[i], select_conditions[0]))//索引和where中条件相吻合
         {
+          cout << "可利用索引: " << indexes[i]->GetIndexName() << "进行优化查询\n";
           return selectWithIndex(select_conditions[0], indexes[i], col_names, allCol);
         }
       }
       //没有索引,直接遍历
-      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); row_iter++)
+      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); ++row_iter)
       {
         if (checkCondition(select_conditions, *row_iter, schema))
           printRow(*row_iter, col_names, allCol, schema);
@@ -799,51 +819,57 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
   uint32_t idx = 0;
   for (pSyntaxNode val_node = table_node->next_->child_; val_node != nullptr; val_node = val_node->next_)
   {
-    if (idx == ins_table->GetPrimIdx() || schema->GetColumn(idx)->IsUnique())//若为主键或unique,则遍历堆表检查是否有重复值
-    {
-      for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++)
-      {
-        Field *field = (*iter).GetField(idx);//获取field
-        if (!strcmp(field->GetData(), val_node->val_)) return DB_FAILED;
-      }
-    }
+    Field *newfield;
     switch (schema->GetColumn(idx)->GetType())
     {
     case kTypeInt:
-      fields.push_back(Field(kTypeInt, atoi(val_node->val_)));
+      if (ins_table->primmap.find(atoi(val_node->val_)) != ins_table->primmap.end())
+      {
+        cout << "PRIMARY KEY约束冲突\n";
+        return DB_FAILED;
+      }
+      newfield = new Field(kTypeInt, atoi(val_node->val_));
+      ins_table->primmap.emplace(atoi(val_node->val_), ins_table->prim_idx++);
+      fields.push_back(*newfield);
       break;
     case kTypeFloat:
-      fields.push_back(Field(kTypeFloat, float(atof(val_node->val_))));
+      newfield = new  Field(kTypeFloat, float(atof(val_node->val_)));
+      fields.push_back(*newfield);
       break;
     case kTypeChar:
-      fields.push_back(Field(kTypeChar, val_node->val_, strlen(val_node->val_), true));
+      if (ins_table->uniquemap.find(string(val_node->val_)) != ins_table->uniquemap.end())
+      {
+        cout << "UNIQUE约束冲突\n";
+        return DB_FAILED;
+      }
+      newfield = new Field(kTypeChar, val_node->val_, strlen(val_node->val_), true);
+      ins_table->uniquemap.emplace(string(val_node->val_), ins_table->unique_idx++);
+      fields.push_back(*newfield);
       break;
     default:
       return DB_FAILED;
       break;
     }
+    delete newfield;
     idx++;
   }
 
   //根据field数组创建row,并插入到堆表
-  Row ins_row(fields);
-  if (!(table_heap->InsertTuple(ins_row, nullptr))) return DB_FAILED;
-  
-  // //获取rowid,插入索引的B+树：
-  // vector<IndexInfo *> indexes;
-  // if (now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes) != DB_SUCCESS) return DB_FAILED;
-  // for (uint32_t i = 0; i < indexes.size(); i++)
-  // {
-  //   auto index = indexes[i]->GetIndex();
-  //   Schema *key_schema = indexes[i]->GetIndexKeySchema();
-  //   vector<Field> index_fields;
-  //   string col_name = key_schema->GetColumn(0)->GetName();
-  //   uint32_t col_idx;
-  //   if (schema->GetColumnIndex(col_name, col_idx) != DB_SUCCESS) return DB_FAILED;
-  //   index_fields.push_back(fields[col_idx]);
-  //   Row key_row(index_fields);
-  //   if (index->InsertEntry(key_row, ins_row.GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
-  // }
+  Row *ins_row = new Row(fields);
+  if (!(table_heap->InsertTuple(*ins_row, nullptr))) return DB_FAILED;
+  delete ins_row;
+
+  //获取rowid,插入索引的B+树：
+  vector<IndexInfo *> indexes;
+  if (now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes) != DB_SUCCESS) return DB_FAILED;
+  for (uint32_t i = 0; i < indexes.size(); i++)
+  {
+    auto index = indexes[i]->GetIndex();
+    vector<Field> index_fields;
+    index_fields.push_back(fields[indexes[i]->GetColIndex(0)]);
+    Row key_row(index_fields);
+    if (index->InsertEntry(key_row, ins_row->GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
+  }
   return DB_SUCCESS;
 }
 
@@ -859,8 +885,7 @@ bool checkDeleteRow(const Row &row, const std::string name, const float val, Sch
   Field *condition_field = row.GetField(col_idx);
 
   //获取field中的数据并判断：
-  float cmp_val = atof(condition_field->GetData());
-  return abs(cmp_val - val) <= 1e-6;//浮点数相等判断
+  return abs(condition_field->GetFloatVal() - val) <= 1e-6;//浮点数相等判断
 }
 
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
@@ -907,7 +932,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
   Schema *schema = del_table->GetSchema();
   TableHeap *table_heap = del_table->GetTableHeap();//获取堆表
-  for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); iter++)//遍历堆表
+  for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter)//遍历堆表
   {
     if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
     {
@@ -969,6 +994,7 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
   char cmd[buf_size];
   int i = 0;
   while (++i) {  // File openning is not finished yet
+
     cout << "第i行: " << i << endl;
     getline(f, line);
     if(f.eof()) break;

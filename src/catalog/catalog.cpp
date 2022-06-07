@@ -310,7 +310,7 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
     return DB_INDEX_NOT_FOUND;
   index_id_t index_id = iter2->second;
   iter1->second.erase(iter2);
-  index_names_.erase(iter1);
+  // index_names_.erase(iter1);
 
   auto iter3 = indexes_.find(index_id);
   if(iter3 == indexes_.end())

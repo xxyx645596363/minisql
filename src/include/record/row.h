@@ -38,7 +38,7 @@ public:
   /**
    * Row used for deserialize
    */
-  Row() = delete;
+  Row() : rid_(INVALID_ROWID), heap_(new SimpleMemHeap) {}
 
   /**
    * Row used for deserialize and update
@@ -93,8 +93,9 @@ public:
 
   inline size_t GetFieldCount() const { return fields_.size(); }
 
-private:
-  Row &operator=(const Row &other) = delete;
+  Row &operator=(Row &other) {
+    return other;
+  }
 
 private:
   RowId rid_{};
