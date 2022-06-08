@@ -639,6 +639,7 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   {
   case kTypeInt:
     fields.push_back(Field(kTypeInt, condition->value_.int_));
+    cout << "selectWithIndex " << condition->value_.int_ << endl;
     break;
   case kTypeFloat:
     fields.push_back(Field(kTypeFloat, condition->value_.float_));
@@ -679,6 +680,10 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
     keypair = *key_iter;//Mapping_Type std::pair<KeyType, ValueType>
     if (keypair.first == genekey)
       printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
+    else
+    {
+      cout << "相等但不完全相等\n";
+    }
     break;
   case 1://!=
     for (auto iter = begin_iter; ; ++iter)

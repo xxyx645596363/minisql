@@ -153,7 +153,7 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
   std::vector<std::string> primary_key;
   primary_key.emplace_back(schema->GetColumn(prim_idx)->GetName());
   IndexInfo * primary_index = nullptr;
-  CreateIndex(table_name, "primary key index", primary_key, nullptr, primary_index);
+  CreateIndex(table_name, "prim_index", primary_key, nullptr, primary_index);
 // //serialize to catalog meta
 //     page_id_t table_meta_page_id;
 //     char * buf = buffer_pool_manager_->NewPage(table_meta_page_id)->GetData();

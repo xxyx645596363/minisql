@@ -62,7 +62,7 @@ TEST(CatalogTest, CatalogTableTest) {
 
   //stage 1.2: test for primary key index
   IndexInfo *index_info_02 = nullptr;
-  ASSERT_EQ(DB_SUCCESS, catalog_01->GetIndex("table-1", "primary key index", index_info_02));
+  ASSERT_EQ(DB_SUCCESS, catalog_01->GetIndex("table-1", "prim_index", index_info_02));
 
   //stage 1.3: test create the second table
   std::vector<Column *> columns_new = {

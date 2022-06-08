@@ -439,7 +439,7 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin() {
  */
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) {
-  auto leaf_page = FindLeafPage(key, true);
+  auto leaf_page = FindLeafPage(key, false);//wsx:true->false
   auto leaf = reinterpret_cast<LeafPage *>(leaf_page);
   int index = 0;
   if (leaf_page != nullptr) {
@@ -465,6 +465,7 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
     InternalPage *root_ = reinterpret_cast<InternalPage *>(root_page);
     end_key = root_->KeyAt(root_->GetSize() - 1);
   }
+  // auto end = reinterpret_cast<LeafPage *> (FindLeafPage(end_key, false));//wsx加了个false参数
   auto end = reinterpret_cast<LeafPage *> (FindLeafPage(end_key));
   buffer_pool_manager_->UnpinPage(root_page_id_, false);
   return INDEXITERATOR_TYPE(end, buffer_pool_manager_, end->GetSize() - 1);
