@@ -34,7 +34,6 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
   buf += sizeof(int64_t);
   int64_t null_bitmap = MACH_READ_FROM(int64_t, buf);
   buf += sizeof(int64_t);
-
   fields_.clear();
   for (int64_t i = 0; i < field_num; i++)
   {
@@ -44,6 +43,7 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
     buf += Field::DeserializeFrom(buf, col->GetType(), &fie, is_null, heap_);
     fields_.push_back(fie);
   }
+  // std::cout << "Row::DeserializeFrom\n";
   return GetSerializedSize(schema);
 }
 

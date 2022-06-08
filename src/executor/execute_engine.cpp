@@ -819,6 +819,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
       if (getindexes_ret != DB_SUCCESS)
       {
         cout << "ExecuteSelect getindexes_ret != DB_SUCCESS\n";
+        return DB_FAILED;
       }
       //遍历索引，检查是否有索引和where中条件相吻合：
       for (uint32_t i = 0; i < indexes.size(); i++)
@@ -832,10 +833,15 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
         }
       }
       //没有索引,直接遍历
-      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); ++row_iter)
+      int i = 1;
+      for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); ++row_iter, i++)
       {
         if (checkCondition(select_conditions, *row_iter, schema))
+        {
+          // cout << "get a record\n";
           printRow(*row_iter, col_names, allCol, schema);
+        }
+        // cout << i << endl;
       }cout << "................................................................................\n";
     }
     for (uint32_t i = 0; i < select_conditions.size(); i++)
@@ -958,8 +964,7 @@ bool checkDeleteRow(const Row &row, const std::string name, const char *val, Sch
     return abs(atof(val) - condition_field->GetFloatVal()) <= 1e-6;
     break;
   case kTypeChar:
-    (condition_field->GetCharVal())[strlen(val)] = 0;
-    if (!strcmp(val, condition_field->GetCharVal())) return true;
+    if (!strncmp(val, condition_field->GetCharVal(), strlen(val))) return true;
     return false;
   default:
     return false;
@@ -1046,7 +1051,7 @@ size_t GetUpdateItem(vector<UpdateItem> &items, pSyntaxNode udnode)
     switch (node->child_->next_->type_)
     {
     case kNodeNumber:
-      if (strstr(udval, "."))// 找到了小数点
+      if (strstr(udval, ".") != NULL)// 找到了小数点
       {
         newitem.type_ = kTypeFloat;
         newitem.value_.float_ = atof(udval);
@@ -1075,11 +1080,13 @@ Row *GetNewRow(const Row &oldrow, vector<UpdateItem> &updateitems, Schema * sche
   for (uint32_t i = 0; i < oldrow.GetFieldCount(); i++)
   {
     string name = schema->GetColumn(i)->GetName();
+    bool update_flag = false;
     for (uint32_t j = 0; j < updateitems.size(); j++)
     {
       if (updateitems[j].name == name)// 当前field为要更新的field
       {
-        switch (updateitems[j].type_)
+        update_flag = true;
+        switch (schema->GetColumn(i)->GetType())
         {
         case kTypeInt:
           newFields.push_back(Field(kTypeInt, updateitems[j].value_.int_));
@@ -1098,10 +1105,14 @@ Row *GetNewRow(const Row &oldrow, vector<UpdateItem> &updateitems, Schema * sche
       }
     }
 
-    // 当前field不用更新，直接加入新的row
-    newFields.push_back(*(oldrow.GetField(i)));
+    if (!update_flag)// 当前field不用更新，直接加入新的row
+      newFields.push_back(*(oldrow.GetField(i)));
   }
-
+  if (schema->GetColumnCount() != newFields.size())
+  {
+    cout << "updateitems数量不对\n";
+    return nullptr;
+  }
   Row *newrow = new Row(newFields);
   return newrow;
 }
@@ -1141,6 +1152,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
     condition_name = condition_node->child_->child_->val_;//名称
     //获取值：
     update_val = condition_node->child_->child_->next_->val_;
+    // cout << "update " << condition_name << "=" << update_val<< endl;
   }
   else return DB_FAILED;
 
@@ -1157,6 +1169,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   {
     if (allUpdate || checkDeleteRow(*iter, condition_name, update_val, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
     {
+      // cout << "满足更新条件\n";
       auto newrow = GetNewRow(*iter, updateitems, schema);
       //调用堆表更新
       if (!table_heap->UpdateTuple(*newrow, (*iter).GetRowId(), nullptr))

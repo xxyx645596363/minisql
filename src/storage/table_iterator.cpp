@@ -27,8 +27,8 @@ Row *TableIterator::operator->() {
 }
 
 TableIterator &TableIterator::operator++() {
-  // std::cout << "TableIterator::operator++" << std::endl;
   RowId this_rid = row_->GetRowId();
+  ASSERT(!(this_rid == INVALID_ROWID), "TableIterator::operator++, this_rid != INVALID_ROWID\n");
   page_id_t this_page_id = this_rid.GetPageId();
   auto this_page = reinterpret_cast<TablePage *>(tableheap_->buffer_pool_manager_->FetchPage(this_page_id));
 
@@ -45,6 +45,7 @@ TableIterator &TableIterator::operator++() {
       {
         // std::cout << "TableIterator::operator++ this_page_id == INVALID_PAGE_ID\n";
         row_->SetRowId(INVALID_ROWID);
+        delete next_rid;
         return *this;
       }
       // std::cout << "go to next page!!!!!!!!!!!!\n";
@@ -54,8 +55,10 @@ TableIterator &TableIterator::operator++() {
 
   //after get next rid, we need update the row and return
   row_->SetRowId(*next_rid);
+  // std::cout << "TableIterator::operator++" << std::endl;
   bool updateRow_ret = this_page->GetTuple(row_, tableheap_->schema_, nullptr, tableheap_->lock_manager_);
   ASSERT(updateRow_ret == true, "wsx_tableiterator++ error!");
+  // std::cout << "TableIterator::operator++1" << std::endl;
 
   delete next_rid;
   tableheap_->buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin

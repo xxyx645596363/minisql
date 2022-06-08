@@ -148,6 +148,7 @@ void TablePage::RollbackDelete(const RowId &rid, Transaction *txn, LogManager *l
 }
 
 bool TablePage::GetTuple(Row *row, Schema *schema, Transaction *txn, LockManager *lock_manager) {
+  // std::cout << "TablePage::GetTuple1\n";
   ASSERT(row != nullptr && row->GetRowId().Get() != INVALID_ROWID.Get(), "Invalid row.");
   // Get the current slot number.
   uint32_t slot_num = row->GetRowId().GetSlotNum();
@@ -161,12 +162,15 @@ bool TablePage::GetTuple(Row *row, Schema *schema, Transaction *txn, LockManager
   if (IsDeleted(tuple_size)) {
     return false;
   }
+  // std::cout << "TablePage::GetTuple2\n";
   // At this point, we have at least a shared lock on the RID. Copy the tuple data into our result.
   // std::cout << "TablePage::GetTuple slot_num: " << slot_num << std::endl;
   uint32_t tuple_offset = GetTupleOffsetAtSlot(slot_num);
+  // std::cout << "TablePage::GetTuple3 " << slot_num << "\n";
   uint32_t __attribute__((unused)) read_bytes = row->DeserializeFrom(GetData() + tuple_offset, schema);
   // std::cout << "TablePage::GetTuple tuple_size read_bytes " << tuple_size << ' ' << read_bytes << std::endl;
   ASSERT(tuple_size == read_bytes, "Unexpected behavior in tuple deserialize.");
+  // std::cout << "TablePage::GetTuple4\n";
   return true;
 }
 
