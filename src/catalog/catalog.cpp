@@ -129,7 +129,6 @@ CatalogManager::~CatalogManager() {
   buf = buffer_pool_manager_->FetchPage(CATALOG_META_PAGE_ID)->GetData();
   catalog_meta_->SerializeTo(buf);
   buffer_pool_manager_->UnpinPage(CATALOG_META_PAGE_ID, true);
-  
   delete heap_;
 }
 
@@ -140,16 +139,16 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
     return DB_TABLE_ALREADY_EXIST;
   }
   // next_table_id_ = catalog_meta_->GetNextTableId();
-  next_table_id_ = tables_.size();
-  table_names_[table_name] = next_table_id_;
-  
+  table_id_t table_id = next_table_id_++; //tables_.size();
+  table_names_[table_name] = table_id;
+
   TableHeap * table_heap = TableHeap::Create(buffer_pool_manager_, schema, nullptr, log_manager_, lock_manager_, heap_);
-  TableMetadata * table_meta = TableMetadata::Create(next_table_id_, table_name, \
+  TableMetadata * table_meta = TableMetadata::Create(table_id, table_name, \
   table_heap->GetFirstPageId(), schema, heap_, prim_idx);
   table_info = TableInfo::Create(heap_);
   table_info->Init(table_meta, table_heap);
 
-  tables_[next_table_id_] = table_info;
+  tables_[table_id] = table_info;
 
   std::vector<std::string> primary_key;
   primary_key.emplace_back(schema->GetColumn(prim_idx)->GetName());
@@ -160,7 +159,7 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
 //     char * buf = buffer_pool_manager_->NewPage(table_meta_page_id)->GetData();
 //     table_info->TableSerialize(buf);
 //     buffer_pool_manager_->UnpinPage(table_meta_page_id, true);
-//     catalog_meta_->table_meta_pages_[next_table_id_]=table_meta_page_id;
+//     catalog_meta_->table_meta_pages_[table_id]=table_meta_page_id;
 
 //     buf = buffer_pool_manager_->FetchPage(CATALOG_META_PAGE_ID)->GetData();
 //     catalog_meta_->SerializeTo(buf);
@@ -171,9 +170,6 @@ dberr_t CatalogManager::CreateTable(const string &table_name, TableSchema *schem
 
 dberr_t CatalogManager::GetTable(const string &table_name, TableInfo *&table_info) {
   table_info = nullptr;
-  // for(auto iter = table_names_.begin(); iter != table_names_.end(); iter++){
-  //   cout<<iter->first<<" "<<iter->second<<endl;
-  // }
   auto iter1 = table_names_.find(table_name);
   if (iter1 == table_names_.end()){
     return DB_TABLE_NOT_EXIST;
@@ -199,14 +195,17 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
                                     const std::vector<std::string> &index_keys, Transaction *txn,
                                     IndexInfo *&index_info) {
   // next_index_id_ = catalog_meta_->GetNextIndexId();
-  next_index_id_ = indexes_.size();
   TableInfo * table_info;
   if(GetTable(table_name, table_info) == DB_TABLE_NOT_EXIST){
     return DB_TABLE_NOT_EXIST;
   }
+  // auto iterr = index_names_.find(table_name)->second;
+  // cout<<"We now have how many indexes? "<<iterr.size()<<endl;
   if(index_names_[table_name].find(index_name) != index_names_[table_name].end()){
+    cout << "当前索引已存在！！！！！\n";
     return DB_INDEX_ALREADY_EXIST;
   }
+  index_id_t index_id = next_index_id_++;
   
   Schema * table_schema = table_info->GetSchema();
   std::vector<uint32_t> key_map;
@@ -223,24 +222,26 @@ dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string 
   // printf("key_map.size = %ld\n",key_map.size());
   // for(auto iter = key_map.begin();iter != key_map.end(); iter++)
   // printf("key map[] = %d\n",*(iter));
-  index_names_[table_name][index_name] = next_index_id_;
+  index_names_[table_name][index_name] = index_id;
   //将索引名字和id的对应关系插入
   
-  IndexMetadata * meta_data = IndexMetadata::Create(next_index_id_, index_name, \
-  next_table_id_, key_map, heap_);
+
+  IndexMetadata * meta_data = IndexMetadata::Create(index_id, index_name, \
+  table_info->GetTableId(), key_map, heap_);
   index_info = IndexInfo::Create(heap_);
+  // std::cout << "CatalogManager::CreateIndex flag1\n";
   index_info -> Init(meta_data, table_info, buffer_pool_manager_);
   // printf("schema key num = %d\n", index_info->GetIndexKeySchema()->GetColumnCount());
   // printf("schema key size = %d\n", index_info->GetIndexKeySchema()->GetSerializedSize());
-  indexes_[next_index_id_] = index_info;
+  indexes_[index_id] = index_info;
 
 // //serialize to catalog meta
 //     page_id_t index_meta_page_id;
 //     char * buf = buffer_pool_manager_->NewPage(index_meta_page_id)->GetData();
 //     index_info->IndexSerialize(buf);
 //     buffer_pool_manager_->UnpinPage(index_meta_page_id,true);
-//     // (catalog_meta_->index_meta_pages_).insert(make_pair(next_index_id_, index_meta_page_id));
-//     catalog_meta_->index_meta_pages_[next_index_id_]=index_meta_page_id;
+//     // (catalog_meta_->index_meta_pages_).insert(make_pair(index_id, index_meta_page_id));
+//     catalog_meta_->index_meta_pages_[index_id]=index_meta_page_id;
 
 //     buf = buffer_pool_manager_->FetchPage(CATALOG_META_PAGE_ID)->GetData();
 //     catalog_meta_->SerializeTo(buf);
@@ -294,10 +295,10 @@ dberr_t CatalogManager::DropTable(const string &table_name) {
   auto iter2 = tables_.find(table_id);
   if(iter2 == tables_.end())
     return DB_TABLE_NOT_EXIST;
-  TableInfo * table_info = iter2->second;
+  // TableInfo * table_info = iter2->second;
   tables_.erase(iter2);
 
-  delete table_info;
+  // delete table_info;
   return DB_SUCCESS;
 }
 
@@ -315,10 +316,9 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
   auto iter3 = indexes_.find(index_id);
   if(iter3 == indexes_.end())
     return DB_INDEX_NOT_FOUND;
-  IndexInfo * index_info = iter3->second;
   indexes_.erase(iter3);
-
-  delete index_info;
+  // IndexInfo * index_info = iter3->second;
+  // delete index_info;
   return DB_SUCCESS;
 }
 
@@ -342,7 +342,7 @@ dberr_t CatalogManager::LoadTable(const table_id_t table_id, const page_id_t pag
   TableHeap * table_heap = TableHeap::Create(buffer_pool_manager_, table_meta->GetFirstPageId(), table_meta->GetSchema(), nullptr, nullptr, table_info->GetMemHeap());
   table_info->Init(table_meta, table_heap);//这里的table_heap怎么办？
   tables_[table_id] = table_info;
-  
+
   return DB_SUCCESS;
 }
 

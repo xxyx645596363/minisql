@@ -98,7 +98,8 @@ private:
     TableHeap * table_heap;
     table_heap = table_info_->GetTableHeap();
     for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter) {
-        // printf("size of table_heap i = %d\n", ++cnt);
+        // std::cout << "Index *CreateIndex for flag1\n";
+        
         const Row &row = *iter;
         std::vector<Field> new_fields;
         uint32_t idx;
@@ -107,7 +108,9 @@ private:
           new_fields.emplace_back(*(row.GetField(idx)));
         }
         Row new_row(new_fields);
+        // std::cout << "Index *CreateIndex for flag2\n";
         index->InsertEntry(new_row, row.GetRowId(), nullptr);
+        // std::cout << "Index *CreateIndex for flag3\n";
     }
     return index;
   }

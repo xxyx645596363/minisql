@@ -47,6 +47,7 @@ TableIterator &TableIterator::operator++() {
         row_->SetRowId(INVALID_ROWID);
         return *this;
       }
+      // std::cout << "go to next page!!!!!!!!!!!!\n";
       this_page = reinterpret_cast<TablePage *>(tableheap_->buffer_pool_manager_->FetchPage(this_page_id));//get next page
     } while (!this_page->GetFirstTupleRid(next_rid));//if false, means this page is deleted all, so go next
   }

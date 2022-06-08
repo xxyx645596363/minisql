@@ -104,7 +104,9 @@ void IndexInfo::Init(IndexMetadata *meta_data, TableInfo *table_info, BufferPool
     //按照attrs里标记的顺序，把table_schema的列进行浅拷贝并返回
     
     key_schema_ = Schema::ShallowCopySchema(tableschema, attrs, heap_);
-  
+
+    // std::cout << "IndexInfo::Init flag1\n";
+
     //这里attr应该是（0，1，2，3...）但是到多少呢？
     // Step3: call CreateIndex to create the index
     index_ = CreateIndex(buffer_pool_manager);

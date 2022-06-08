@@ -70,7 +70,7 @@ dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *co
     std::cout << "Database Already Exists!\n";
     return DB_FAILED;
   }
-     
+
   //创建新数据库
   DBStorageEngine *new_dbs = new DBStorageEngine(new_dbs_name, true);
 
@@ -108,12 +108,34 @@ dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *con
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowDatabases" << std::endl;
 #endif
-  //遍历输出所有数据库的名称
-  for (auto iter = dbs_.begin(); iter != dbs_.end(); iter++)
+  if (dbs_.size())//不是刚开始程序
   {
-    std::cout << iter->first << std:: endl;
+    //遍历输出所有数据库的名称
+    for (auto iter = dbs_.begin(); iter != dbs_.end(); iter++)
+    {
+      std::cout << iter->first << std:: endl;
+    }
+    return DB_SUCCESS;
   }
+  ifstream db_name_f("db_name.txt", ios::in);
+  if (!db_name_f.is_open()) {
+    cout << "Open file da_name wrong!" << endl;
+    return DB_FAILED;
+  }
+  
+  while (1)
+  {
+    string db_name;
+    getline(db_name_f, db_name);
+    if (db_name_f.eof()) break;
+    cout << db_name << endl;
+    DBStorageEngine *ori_dbs = new DBStorageEngine(db_name, false);
+    dbs_.emplace(db_name, ori_dbs);
+  }
+
+  db_name_f.close();
   return DB_SUCCESS;
+  
 }
 
 
@@ -189,7 +211,7 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   while ((prim_node->type_ != kNodeColumnList || prim_node->val_[0] != 'p') && (prim_node != nullptr)) prim_node = prim_node->next_;//定位存储主键的子树
   if (prim_node == nullptr || prim_node->type_ != kNodeColumnList) return DB_FAILED;
   std::string prim_name = prim_node->child_->val_;
-  cout << "ExecuteCreateTable prim_name: " << prim_name << endl;
+  // cout << "ExecuteCreateTable prim_name: " << prim_name << endl;
   // for (pSyntaxNode node = prim_node->child_; node != nullptr; node = node->next_)
   // {
   //   prim_set.insert(node->val_);
@@ -369,7 +391,7 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
     if (key_node->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
     index_keys.push_back(key_node->val_);
   }
-
+  // cout << "ExecuteCreateIndex flag1\n"; 
   //根据当前所在数据库名称获取当前数据库
   if (!current_db_.length())//当前无数据库
   {
@@ -419,6 +441,7 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
 
 void printRow(const Row row, const std::vector<std::string> col_names, const bool allCol, const Schema *schema)
 {
+  select_record++;
   for (uint32_t i = 0; i < schema->GetColumnCount(); i++)
   {
     string col_name = schema->GetColumn(i)->GetName();
@@ -437,7 +460,7 @@ void printRow(const Row row, const std::vector<std::string> col_names, const boo
           cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetFloatVal();
           break;
         case kTypeChar:
-          cout << setw(20) << setiosflags(ios::left) << row.GetField(i)->GetCharVal();
+          cout << setw(20) << setiosflags(ios::left) << string(row.GetField(i)->GetCharVal(), row.GetField(i)->GetLength());
           break;
         default:
           break;
@@ -539,8 +562,9 @@ dberr_t getSelectCondition(vector<SelectCondition *> &select_conditions, pSyntax
   }
   else if (condition_node->child_->type_ == kNodeConnector)//where后为and
   {
-    select_conditions.push_back(getConditionByCompare(condition_node->child_, schema));
-    select_conditions.push_back(getConditionByCompare(condition_node->child_->next_, schema));
+    // cout << "发现where后面是and\n";
+    select_conditions.push_back(getConditionByCompare(condition_node->child_->child_, schema));
+    select_conditions.push_back(getConditionByCompare(condition_node->child_->child_->next_, schema));
     return DB_SUCCESS;
   }
   else return DB_FAILED;
@@ -639,63 +663,6 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   //构建row和GenericKey,默认用64的大小,从而获取相应的迭代器:
   Row key_row(fields);
   
-  // vector::<RowId> rids;
-  // indexinfo->GetIndex()->ScanKey(key_row, rids, nullptr);
-
-  // Schema * printschema = indexinfo->GetTableInfo()->GetSchema();
-  // switch (condition->type_)
-  // {
-  // case 0://=
-  //   printRowWithRid(rids[0], table_heap, col_names, allCol, printschema);
-  //   break;
-  // case 1://!=
-  //   for (auto iter = begin_iter; iter != end_iter; ++iter)
-  //   {
-  //     if (iter == key_iter) continue;//跳过等于的row
-  //     //获取rowid:
-  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
-  //   }
-  //   break;
-  // case 2://<
-  //   for (auto iter = begin_iter; iter != key_iter; ++iter)
-  //   {
-  //     //获取rowid:
-  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
-  //   }
-  //   break;
-  // case 3://>
-  //   for (auto iter3 = ++key_iter; iter3 != end_iter; ++iter3)
-  //   {
-  //     //获取rowid:
-  //     keypair = *iter3;//Mapping_Type std::pair<KeyType, ValueType>
-  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
-  //   }
-  //   break;
-  // case 4://<=
-  //   for (auto iter = begin_iter; iter != end_iter; ++iter)
-  //   {
-  //     //获取rowid:
-  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
-  //     if (iter == key_iter) break;
-  //   }
-  //   break;
-  // case 5://>=
-  //   for (auto iter = key_iter; iter != end_iter; ++iter)
-  //   {
-  //     //获取rowid:
-  //     keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
-  //     printRowWithRid(keypair, table_heap, col_names, allCol, printschema);
-  //     if (iter == key_iter) break;
-  //   }
-  //   break;
-  // default:
-  //   return DB_FAILED;
-  //   break;
-  // }
-  
   GenericKey<64> genekey;
   genekey.SerializeFromKey(key_row, schema);
   
@@ -716,15 +683,17 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   case 0://=
     //获取rowid:
     keypair = *key_iter;//Mapping_Type std::pair<KeyType, ValueType>
-    printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
+    if (keypair.first == genekey)
+      printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
     break;
   case 1://!=
-    for (auto iter = begin_iter; iter != end_iter; ++iter)
+    for (auto iter = begin_iter; ; ++iter)
     {
-      if (iter == key_iter) continue;//跳过等于的row
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      if (iter == key_iter && keypair.first == genekey) continue;//跳过等于的row
       printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
+      if (iter == end_iter) break;
     }
     break;
   case 2://<
@@ -733,32 +702,50 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
+      if (iter == end_iter) break;
     }
     break;
   case 3://>
-    for (auto iter3 = ++key_iter; iter3 != end_iter; ++iter3)
+    for (auto iter = key_iter; ; ++iter)
     {
       //获取rowid:
-      keypair = *iter3;//Mapping_Type std::pair<KeyType, ValueType>
+      keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      if (keypair.first == genekey)
+      {
+        if (iter == end_iter) break;
+        continue;
+      }
       printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
+      if (iter == end_iter) break;
     }
     break;
   case 4://<=
-    for (auto iter = begin_iter; iter != end_iter; ++iter)
+    for (auto iter = begin_iter; ; ++iter)
     {
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
+      if (iter == key_iter)
+      {
+        if (keypair.first == genekey)
+        {
+          ++key_iter;
+        }
+        else
+        {
+          break;
+        }
+      }
       printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
-      if (iter == key_iter) break;
+      if (iter == end_iter) break;
     }
     break;
   case 5://>=
-    for (auto iter = key_iter; iter != end_iter; ++iter)
+    for (auto iter = key_iter; ; ++iter)
     {
       //获取rowid:
       keypair = *iter;//Mapping_Type std::pair<KeyType, ValueType>
       printRowWithpair(keypair, table_heap, col_names, allCol, printschema);
-      if (iter == key_iter) break;
+      if (iter == end_iter) break;
     }
     break;
   default:
@@ -767,11 +754,11 @@ dberr_t selectWithIndex(SelectCondition *condition, IndexInfo *indexinfo, const 
   }
   return DB_SUCCESS;
 }
-
 dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteSelect" << std::endl;
 #endif
+  select_record = 0;
   //根据当前所在数据库名称获取当前数据库
   if (!current_db_.length())//当前无数据库
   {
@@ -817,12 +804,15 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
   {
     // cout << "ExecuteSelect condition_node->type_ == kNodeConditions\n";
     vector<SelectCondition *> select_conditions;
+    // cout << "!!!!!!!!!!!!!!!!!!!!!" << endl;
     getSelectCondition(select_conditions, condition_node, schema);
+    // cout << "......................" << endl;
     // cout << "ExecuteSelect size select_conditions[0]->type is float: " << select_conditions.size() << " " << (select_conditions[0]->type_id_ == kTypeFloat) << endl;
     if (select_conditions.size() == 2)//多条件查询，直接遍历
     {
       for (auto row_iter = table_heap->Begin(nullptr); row_iter != table_heap->End(); ++row_iter)
       {
+        // cout << "multiselect\n";
         if (checkCondition(select_conditions, *row_iter, schema))
           printRow(*row_iter, col_names, allCol, schema);
       }cout << "................................................................................\n";
@@ -842,7 +832,9 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
         if (checkIndexSameWithCondition(indexes[i], select_conditions[0]))//索引和where中条件相吻合
         {
           cout << "可利用索引: " << indexes[i]->GetIndexName() << "进行优化查询\n";
-          return selectWithIndex(select_conditions[0], indexes[i], col_names, allCol);
+          dberr_t select_ret = selectWithIndex(select_conditions[0], indexes[i], col_names, allCol);
+          cout << "一共查到 " << select_record << "条记录!\n";
+          return select_ret;
         }
       }
       //没有索引,直接遍历
@@ -858,7 +850,7 @@ dberr_t ExecuteEngine::ExecuteSelect(pSyntaxNode ast, ExecuteContext *context) {
     }
   }
   else return DB_FAILED;//检查语义
-  
+  cout << "一共查到 " << select_record << "条记录!\n";
   return DB_SUCCESS;
 }
 
@@ -943,13 +935,17 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     index_fields.push_back(fields[indexes[i]->GetColIndex(0)]);
     Row key_row(index_fields);
     if (index->InsertEntry(key_row, ins_row->GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
+    else
+    {
+      cout << "记录插入索引： " << index->index_id_ << endl;
+    }
   }
   delete ins_row;
   return DB_SUCCESS;
 }
 
 
-bool checkDeleteRow(const Row &row, const std::string name, const float val, Schema *schema)
+bool checkDeleteRow(const Row &row, const std::string name, const char *val, Schema *schema)
 {
   //获取删除条件中属性名name对应的col_idx:
   uint32_t col_idx;
@@ -959,8 +955,22 @@ bool checkDeleteRow(const Row &row, const std::string name, const float val, Sch
   //根据idx获取row中的field:
   Field *condition_field = row.GetField(col_idx);
 
-  //获取field中的数据并判断：
-  return abs(condition_field->GetFloatVal() - val) <= 1e-6;//浮点数相等判断
+  switch (condition_field->GetType())
+  {
+  case kTypeInt:
+    return atoi(val) == condition_field->GetIntVal();
+    break;
+  case kTypeFloat:
+    return abs(atof(val) - condition_field->GetFloatVal()) <= 1e-6;
+    break;
+  case kTypeChar:
+    (condition_field->GetCharVal())[strlen(val)] = 0;
+    if (!strcmp(val, condition_field->GetCharVal())) return true;
+    return false;
+  default:
+    return false;
+    break;
+  }
 }
 
 dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
@@ -984,21 +994,22 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   bool allDelete = false;
   pSyntaxNode condition_node = table_node->next_;
   std::string condition_name;
-  float del_val;
+  char *del_val;
   if (condition_node == nullptr) allDelete = true;
   else//偷个懒，根据验收流程默认条件为=,且只有一个条件
   {
     condition_name = condition_node->child_->child_->val_;//名称
     //获取值：
-    pSyntaxNode val_node = condition_node->child_->child_->next_;
-    if (strstr(val_node->val_, ".") == NULL)//不存在小数点，为整数
-    {
-      del_val = atoi(val_node->val_);
-    }
-    else//小数
-    {
-      del_val = atof(val_node->val_);
-    }
+    del_val = condition_node->child_->child_->next_->val_;
+    
+    // if (strstr(val_node->val_, ".") == NULL)//不存在小数点，为整数
+    // {
+    //   del_val = atoi(val_node->val_);
+    // }
+    // else//小数
+    // {
+    //   del_val = atof(val_node->val_);
+    // }
   }
 
   //遍历删除：
@@ -1012,6 +1023,7 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
     if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
     {
       //调用堆表删除
+      cout << (*iter).GetField(0)->GetIntVal() << endl;
       table_heap->ApplyDelete((*iter).GetRowId(), nullptr);
     }
   }
@@ -1187,5 +1199,19 @@ dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
 #endif
   ASSERT(ast->type_ == kNodeQuit, "Unexpected node type.");
   context->flag_quit_ = true;
+
+  ofstream db_name_f("db_name.txt", ios::out);
+  if (!db_name_f.is_open()) {
+    cout << "Open file da_name wrong!" << endl;
+    return DB_FAILED;
+  }
+  
+  for (auto iter = dbs_.begin(); iter != dbs_.end(); iter++)
+  {
+    db_name_f << iter->first << endl;
+  }
+
+  db_name_f.close();
+
   return DB_SUCCESS;
 }

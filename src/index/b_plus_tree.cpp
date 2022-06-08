@@ -20,6 +20,7 @@ BPLUSTREE_TYPE::BPlusTree(index_id_t index_id, BufferPoolManager *buffer_pool_ma
     if(page->GetRootId(index_id, &oldroot)){
       root_page_id_ = oldroot;
     }
+    // cout<<"Find root page id "<<index_id<<" "<<root_page_id_<<endl;
   }
   buffer_pool_manager_->UnpinPage(INDEX_ROOTS_PAGE_ID, true);
 }
@@ -78,11 +79,13 @@ bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   //printf("cd into insert\n");
   //printf("root = %d\n",root_page_id_);
   if(IsEmpty()){
+    // std::cout << "BPLUSTREE_TYPE::Insert isempty\n";
     //printf("empty tree\n");
     StartNewTree(key, value);
+    // std::cout << "BPLUSTREE_TYPE::Insert isempty1\n";
     return true;
   }
-  //printf("non-empty tree\n");
+  // printf("non-empty tree\n");
   return InsertIntoLeaf(key, value, transaction);
 }
 /*

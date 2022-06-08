@@ -12,6 +12,8 @@ FILE *yyin;
 #include "parser/parser.h"
 }
 
+// #define ENABLE_PARSER_DEBUG 1
+
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
   FLAGS_colorlogtostderr = true;

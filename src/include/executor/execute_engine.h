@@ -25,6 +25,9 @@ using namespace std;
 
 #define Mapping_Type std::pair<GenericKey<64>, RowId>
 
+
+int select_record;
+
 /**
  * ExecuteContext stores all the context necessary to run in the execute engine
  * This struct is implemented by student self for necessary.

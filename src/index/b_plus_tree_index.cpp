@@ -16,8 +16,11 @@ dberr_t BPLUSTREE_INDEX_TYPE::InsertEntry(const Row &key, RowId row_id, Transact
   KeyType index_key;
   index_key.SerializeFromKey(key, key_schema_);
 
+  // std::cout << "BPLUSTREE_INDEX_TYPE::InsertEntry flag1\n";
+
   bool status = container_.Insert(index_key, row_id, txn);
 
+  // std::cout << "BPLUSTREE_INDEX_TYPE::InsertEntry flag2\n";
   if (!status) {
     return DB_FAILED;
   }

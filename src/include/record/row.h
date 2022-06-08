@@ -30,8 +30,11 @@ public:
   explicit Row(std::vector<Field> &fields) : heap_(new SimpleMemHeap) {
     // deep copy
     for (auto &field : fields) {
+      // std::cout << "Row构建0\n";
       void *buf = heap_->Allocate(sizeof(Field));
+      // std::cout << "Row构建1\n";
       fields_.push_back(new(buf)Field(field));
+      // std::cout << "Row构建2\n";
     }
   }
 
@@ -95,6 +98,18 @@ public:
 
   Row &operator=(Row &other) {
     return other;
+  }
+
+  bool operator==(Row &other)
+  {
+    if (this->GetFieldCount() != other.GetFieldCount())  return false;
+
+    for (size_t i = 0; i < this->GetFieldCount(); i++)
+    {
+      if (this->GetField(i)->CompareEquals(*(other.GetField(i))) != kTrue) return false;
+    }
+
+    return true;
   }
 
 private:
