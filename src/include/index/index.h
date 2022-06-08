@@ -16,7 +16,7 @@ public:
 
   virtual dberr_t InsertEntry(const Row &key, RowId row_id, Transaction *txn) = 0;
 
-  virtual dberr_t RemoveEntry(const Row &key, RowId row_id, Transaction *txn) = 0;
+  virtual dberr_t RemoveEntry(const Row &key, Transaction *txn) = 0;
 
   virtual dberr_t ScanKey(const Row &key, std::vector<RowId> &result, Transaction *txn) = 0;
 

@@ -39,46 +39,6 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
   return false;
 }
 
-// bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
-//   // std::cout << "TableHeap::InsertTuple first_page_id_: " << first_page_id_ << std::endl;
-//   //check if some current pages are enough for the new row
-//   page_id_t this_page_id = first_page_id_, next_page_id;
-//   TablePage *this_page;
-//   for (; this_page_id != INVALID_PAGE_ID; )
-//   {
-//     this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
-//     if (this_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
-//     {
-//       buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
-//       return true;
-//     }
-//     next_page_id = this_page->GetNextPageId();
-//     buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
-//     if (next_page_id == INVALID_PAGE_ID) break;
-//     this_page_id = next_page_id;
-//   }
-
-//   // all current pages are not enough for the new row, so we need to create a new page and insert it into the double link list
-//   page_id_t new_page_id;
-//   auto new_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(new_page_id));
-//   new_page->Init(new_page_id, INVALID_PAGE_ID, log_manager_, txn);
-//   new_page->SetNextPageId(first_page_id_);
-//   if (new_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
-//   {
-//     //insert it into the !!head!! of double link list
-//     if (first_page_id_ != INVALID_PAGE_ID) {//当前有page存在
-//       this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id_));
-//       this_page->SetPrevPageId(new_page_id);
-//       buffer_pool_manager_->UnpinPage(first_page_id_, true);//将该页unpin
-//     }
-//     first_page_id_ = new_page_id; 
-//     buffer_pool_manager_->UnpinPage(new_page_id, true);//将该页unpin
-//     return true;
-//   }
-//   buffer_pool_manager_->UnpinPage(new_page_id, false);//将该页unpin
-//   return false;
-// }
-
 //wsx_end1
 
 bool TableHeap::MarkDelete(const RowId &rid, Transaction *txn) {
@@ -98,7 +58,7 @@ bool TableHeap::MarkDelete(const RowId &rid, Transaction *txn) {
 
 //wsx_start2
 
-bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) {
+bool TableHeap::UpdateTuple(Row &row, const RowId &rid, Transaction *txn) {
   // Find the page which contains the tuple.
   page_id_t this_page_id = rid.GetPageId();
   auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
@@ -124,9 +84,9 @@ bool TableHeap::UpdateTuple(const Row &row, const RowId &rid, Transaction *txn) 
   else if (update_ret == 2)//current page is no enough for the new row, so we delete and insert again
   {
     buffer_pool_manager_->UnpinPage(this_page_id, false);//将该页unpin
-    bool ret_delete = MarkDelete(rid, txn);
-    bool ret_insert = InsertTuple(*(const_cast<Row *>(&row)), txn);
-    return ret_delete && ret_insert;
+    ApplyDelete(rid, txn);
+    bool ret_insert = InsertTuple(row, txn);
+    return ret_insert;
   }
   else
   {

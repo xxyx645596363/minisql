@@ -12,7 +12,7 @@ FILE *yyin;
 #include "parser/parser.h"
 }
 
-// #define ENABLE_PARSER_DEBUG 1
+#define ENABLE_PARSER_DEBUG 1
 
 void InitGoogleLog(char *argv) {
   FLAGS_logtostderr = true;
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
       printf("%s\n", MinisqlParserGetErrorMessage());
     } else {
 #ifdef ENABLE_PARSER_DEBUG
-      printf("[INFO] Sql syntax parse ok!\n");
+      // printf("[INFO] Sql syntax parse ok!\n");
       SyntaxTreePrinter printer(MinisqlGetParserRootNode());
       printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
 #endif

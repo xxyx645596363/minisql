@@ -13,7 +13,7 @@ public:
 
   dberr_t InsertEntry(const Row &key, RowId row_id, Transaction *txn) override;
 
-  dberr_t RemoveEntry(const Row &key, RowId row_id, Transaction *txn) override;
+  dberr_t RemoveEntry(const Row &key, Transaction *txn) override;
 
   dberr_t ScanKey(const Row &key, std::vector<RowId> &result, Transaction *txn) override;
 

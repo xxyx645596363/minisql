@@ -38,12 +38,6 @@ dberr_t ExecuteEngine::Execute(pSyntaxNode ast, ExecuteContext *context) {
       return ExecuteDelete(ast, context);
     case kNodeUpdate:
       return ExecuteUpdate(ast, context);
-    case kNodeTrxBegin:
-      return ExecuteTrxBegin(ast, context);
-    case kNodeTrxCommit:
-      return ExecuteTrxCommit(ast, context);
-    case kNodeTrxRollback:
-      return ExecuteTrxRollback(ast, context);
     case kNodeExecFile:
       return ExecuteExecfile(ast, context);
     case kNodeQuit:
@@ -937,7 +931,7 @@ dberr_t ExecuteEngine::ExecuteInsert(pSyntaxNode ast, ExecuteContext *context) {
     if (index->InsertEntry(key_row, ins_row->GetRowId(), nullptr) != DB_SUCCESS) return DB_FAILED;
     else
     {
-      cout << "记录插入索引： " << index->index_id_ << endl;
+      // cout << "记录插入索引： " << index->index_id_ << endl;
     }
   }
   delete ins_row;
@@ -996,21 +990,13 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   std::string condition_name;
   char *del_val;
   if (condition_node == nullptr) allDelete = true;
-  else//偷个懒，根据验收流程默认条件为=,且只有一个条件
+  else if (!strcmp(condition_node->child_->val_, "="))//偷个懒，根据验收流程默认条件为=,且只有一个条件
   {
     condition_name = condition_node->child_->child_->val_;//名称
     //获取值：
     del_val = condition_node->child_->child_->next_->val_;
-    
-    // if (strstr(val_node->val_, ".") == NULL)//不存在小数点，为整数
-    // {
-    //   del_val = atoi(val_node->val_);
-    // }
-    // else//小数
-    // {
-    //   del_val = atof(val_node->val_);
-    // }
   }
+  else return DB_FAILED;
 
   //遍历删除：
   TableInfo *del_table; 
@@ -1018,49 +1004,196 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
   Schema *schema = del_table->GetSchema();
   TableHeap *table_heap = del_table->GetTableHeap();//获取堆表
+  vector<IndexInfo *> indexes;
+  dberr_t getindexes_ret = now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes);
+  if (getindexes_ret != DB_SUCCESS) return DB_FAILED;
   for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter)//遍历堆表
   {
     if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
     {
       //调用堆表删除
-      cout << (*iter).GetField(0)->GetIntVal() << endl;
       table_heap->ApplyDelete((*iter).GetRowId(), nullptr);
+      //遍历索引删除
+      for (uint32_t i = 0; i < indexes.size(); i++)
+      {
+        vector<Field> index_fields;
+        index_fields.push_back(*((*iter).GetField(indexes[i]->GetColIndex(0))));
+        Row key_row(index_fields);
+        indexes[i]->GetIndex()->RemoveEntry(key_row, nullptr);
+      }
+    }
+  }
+  return DB_SUCCESS;
+}
+
+
+size_t GetUpdateItem(vector<UpdateItem> &items, pSyntaxNode udnode)
+{
+  size_t itemnum = 0;
+  for (pSyntaxNode node = udnode->child_; node != nullptr; node = node->next_)
+  {
+    itemnum++;
+
+    if (node->type_ != kNodeUpdateValue)
+    {
+      cout << "更新值语法树错误\n";
+      return -1;
+    }
+
+    UpdateItem newitem;
+    newitem.name = node->child_->val_;
+    char *udval = node->child_->next_->val_;
+    switch (node->child_->next_->type_)
+    {
+    case kNodeNumber:
+      if (strstr(udval, "."))// 找到了小数点
+      {
+        newitem.type_ = kTypeFloat;
+        newitem.value_.float_ = atof(udval);
+      }
+      else
+      {
+        newitem.type_ = kTypeInt;
+        newitem.value_.int_ = atoi(udval);
+      }
+      break;
+    case kNodeString:
+      newitem.type_ = kTypeChar;
+      newitem.value_.chars_ = udval;
+      break;
+    default:
+      return -1;
+    }
+    items.push_back(newitem);
+  }
+  return itemnum;
+}
+
+Row *GetNewRow(const Row &oldrow, vector<UpdateItem> &updateitems, Schema * schema)
+{
+  vector<Field> newFields;
+  for (uint32_t i = 0; i < oldrow.GetFieldCount(); i++)
+  {
+    string name = schema->GetColumn(i)->GetName();
+    for (uint32_t j = 0; j < updateitems.size(); j++)
+    {
+      if (updateitems[j].name == name)// 当前field为要更新的field
+      {
+        switch (updateitems[j].type_)
+        {
+        case kTypeInt:
+          newFields.push_back(Field(kTypeInt, updateitems[j].value_.int_));
+          break;
+        case kTypeFloat:
+          newFields.push_back(Field(kTypeFloat, updateitems[j].value_.float_));
+          break;
+        case kTypeChar:
+          newFields.push_back(Field(kTypeChar, updateitems[j].value_.chars_, strlen(updateitems[j].value_.chars_), true));
+          break;
+        default:
+          cout << "updateitems出错！\n";
+          return nullptr;
+        }
+        break;
+      }
+    }
+
+    // 当前field不用更新，直接加入新的row
+    newFields.push_back(*(oldrow.GetField(i)));
+  }
+
+  Row *newrow = new Row(newFields);
+  return newrow;
+}
+
+dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
+#ifdef ENABLE_EXECUTE_DEBUG
+  LOG(INFO) << "ExecuteUpdate" << std::endl;
+#endif
+  //根据当前所在数据库名称获取当前数据库
+  if (!current_db_.length())//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
+  DBStorageEngine *now_dbs = dbs_.at(current_db_);
+
+  //获取表的名称：
+  pSyntaxNode table_node = ast->child_;
+  if (table_node->type_ != kNodeIdentifier) return DB_FAILED;
+  std::string table_name = table_node->val_;
+
+  vector<UpdateItem> updateitems;
+  if (GetUpdateItem(updateitems, table_node->next_) != updateitems.size())
+  {
+    cout << "更新记录语法树出错！\n";
+    return DB_FAILED;
+  }
+
+  //判断更新条件：
+  bool allUpdate = false;
+  pSyntaxNode condition_node = table_node->next_->next_;
+  std::string condition_name;
+  char *update_val;
+  if (condition_node == nullptr) allUpdate = true;
+  else if (!strcmp(condition_node->child_->val_, "="))//偷个懒，根据验收流程默认条件为=,且只有一个条件
+  {
+    condition_name = condition_node->child_->child_->val_;//名称
+    //获取值：
+    update_val = condition_node->child_->child_->next_->val_;
+  }
+  else return DB_FAILED;
+
+  //遍历更新：
+  TableInfo *ud_table; 
+  dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, ud_table);//获取表
+  if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
+  Schema *schema = ud_table->GetSchema();
+  TableHeap *table_heap = ud_table->GetTableHeap();//获取堆表
+  vector<IndexInfo *> indexes;
+  dberr_t getindexes_ret = now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes);//获取索引
+  if (getindexes_ret != DB_SUCCESS) return DB_FAILED;
+  for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter)//遍历堆表
+  {
+    if (allUpdate || checkDeleteRow(*iter, condition_name, update_val, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
+    {
+      auto newrow = GetNewRow(*iter, updateitems, schema);
+      //调用堆表更新
+      if (!table_heap->UpdateTuple(*newrow, (*iter).GetRowId(), nullptr))
+      {
+        cout << "更新堆表失败！\n";
+        return DB_FAILED;
+      }
+      //B+树更新,遍历索引,先删除再插入
+      for (uint32_t i = 0; i < indexes.size(); i++)
+      {
+        vector<Field> index_fields;
+        index_fields.push_back(*((iter->GetField(indexes[i]->GetColIndex(0)))));
+        Row key_row(index_fields);
+        if (indexes[i]->GetIndex()->RemoveEntry(key_row, nullptr) != DB_SUCCESS)
+        {
+          cout << "更新删除索引记录失败\n";
+          delete newrow;
+          return DB_FAILED;
+        } 
+
+        index_fields.clear();
+        index_fields.push_back(*(newrow->GetField(indexes[i]->GetColIndex(0))));
+        Row new_key_row(index_fields);
+        if (indexes[i]->GetIndex()->InsertEntry(new_key_row, newrow->GetRowId(), nullptr) != DB_SUCCESS)
+        {
+          cout << "更新插入索引记录失败\n";
+          delete newrow;
+          return DB_FAILED;
+        }
+      }
+      delete newrow;
     }
   }
 
   return DB_SUCCESS;
 }
 
-
-dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteUpdate" << std::endl;
-#endif
-  
-  return DB_FAILED;
-}
-
-
-dberr_t ExecuteEngine::ExecuteTrxBegin(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteTrxBegin" << std::endl;
-#endif
-  return DB_FAILED;
-}
-
-dberr_t ExecuteEngine::ExecuteTrxCommit(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteTrxCommit" << std::endl;
-#endif
-  return DB_FAILED;
-}
-
-dberr_t ExecuteEngine::ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *context) {
-#ifdef ENABLE_EXECUTE_DEBUG
-  LOG(INFO) << "ExecuteTrxRollback" << std::endl;
-#endif
-  return DB_FAILED;
-}
 
 dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG

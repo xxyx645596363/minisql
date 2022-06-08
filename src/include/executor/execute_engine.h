@@ -86,12 +86,6 @@ private:
 
   dberr_t ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context);
 
-  dberr_t ExecuteTrxBegin(pSyntaxNode ast, ExecuteContext *context);
-
-  dberr_t ExecuteTrxCommit(pSyntaxNode ast, ExecuteContext *context);
-
-  dberr_t ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *context);
-
   dberr_t ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context);
 
   dberr_t ExecuteQuit(pSyntaxNode ast, ExecuteContext *context);
@@ -113,5 +107,15 @@ struct SelectCondition
   } value_;
 };
 
+struct UpdateItem
+{
+  string name;
+  TypeId type_;
+  union Val {
+    float float_;
+    int int_;
+    char *chars_;
+  } value_;
+};
 
 #endif //MINISQL_EXECUTE_ENGINE_H
