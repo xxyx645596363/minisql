@@ -124,7 +124,7 @@ if(page_table_.find(page_id) == page_table_.end()){
     return false;
   }
   frame_id_t P = page_table_[page_id];
-  if(pages_[P].pin_count_ < 0){
+  if(pages_[P].pin_count_ <= 0){
     return false;
   }
   if(pages_[P].pin_count_ > 0){
