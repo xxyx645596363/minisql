@@ -123,7 +123,7 @@ dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *con
     getline(db_name_f, db_name);
     if (db_name_f.eof()) break;
     cout << db_name << endl;
-    DBStorageEngine *ori_dbs = new DBStorageEngine(db_name, false);
+    [[maybe_unused]] DBStorageEngine *ori_dbs = new DBStorageEngine(db_name, false);
     dbs_.emplace(db_name, ori_dbs);
   }
 
@@ -368,6 +368,14 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateIndex" << std::endl;
 #endif
+  //根据当前所在数据库名称获取当前数据库
+  if (!current_db_.length())//当前无数据库
+  {
+    std::cout << "No current dbs!" << std::endl;
+    return DB_FAILED;
+  }
+  DBStorageEngine *now_dbs = dbs_.at(current_db_);
+
   //获取创建索引的名称：
   pSyntaxNode ast_son1 = ast->child_, ast_son2 = ast_son1->next_, ast_son3 = ast_son2->next_;
   if (ast_son1->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
@@ -376,6 +384,13 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   //获取创建索引的表的名称：
   if (ast_son2->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
   std::string table_name = ast_son2->val_;
+  TableInfo * table;
+  if (now_dbs->catalog_mgr_->GetTable(table_name, table) != DB_SUCCESS)
+  {
+    cout << "获取表失败\n";
+    return DB_FAILED;
+  }
+  Schema *schema = table->GetSchema();
 
   //获取索引的attribute,以vector的结果
   std::vector<std::string> index_keys;
@@ -384,15 +399,19 @@ dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *conte
   {
     if (key_node->type_ != kNodeIdentifier) return DB_FAILED;//检查语义
     index_keys.push_back(key_node->val_);
+    uint32_t col_idx;
+    if (schema->GetColumnIndex(key_node->val_, col_idx) != DB_SUCCESS)
+    {
+      cout << "没有找到当前索引对应的列\n";
+      return DB_FAILED;
+    }
+    if (!schema->GetColumn(col_idx)->IsUnique())
+    {
+      cout << "创建的索引必须unique\n";
+      return DB_FAILED;
+    }
   }
   // cout << "ExecuteCreateIndex flag1\n"; 
-  //根据当前所在数据库名称获取当前数据库
-  if (!current_db_.length())//当前无数据库
-  {
-    std::cout << "No current dbs!" << std::endl;
-    return DB_FAILED;
-  }
-  DBStorageEngine *now_dbs = dbs_.at(current_db_);
 
   //调用catalog的CreateIndex函数创建索引：
   IndexInfo *index_info;//创建一个IndexInfo用于引用返回
@@ -1032,6 +1051,8 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
     // if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
     if (allDelete || checkCondition(del_conditions, *iter, schema))//若全部删除或row满足删除条件，则删除
     {
+      del_table->primmap.erase((*iter).GetField(0)->GetIntVal());
+      del_table->uniquemap.erase(string((*iter).GetField(1)->GetCharVal(), (*iter).GetField(1)->GetLength()));
       //调用堆表删除
       table_heap->ApplyDelete((*iter).GetRowId(), nullptr);
       //遍历索引删除
@@ -1194,10 +1215,13 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter)//遍历堆表
   {
     if (allUpdate || checkCondition(ud_conditions, *iter, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
-    // if (allUpdate || checkDeleteRow(*iter, condition_name, update_val, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
     {
+      ud_table->primmap.erase((*iter).GetField(0)->GetIntVal());
+      ud_table->uniquemap.erase(string((*iter).GetField(1)->GetCharVal(), (*iter).GetField(1)->GetLength()));
       // cout << "满足更新条件\n";
       auto newrow = GetNewRow(*iter, updateitems, schema);
+      ud_table->primmap.emplace(newrow->GetField(0)->GetIntVal(), ud_table->primmap.size());
+      ud_table->uniquemap.emplace(string(newrow->GetField(1)->GetCharVal(), (*iter).GetField(1)->GetLength()), ud_table->primmap.size());
       //调用堆表更新
       if (!table_heap->UpdateTuple(*newrow, (*iter).GetRowId(), nullptr))
       {

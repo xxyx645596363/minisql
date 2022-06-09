@@ -297,7 +297,11 @@ dberr_t CatalogManager::DropTable(const string &table_name) {
     return DB_TABLE_NOT_EXIST;
   // TableInfo * table_info = iter2->second;
   tables_.erase(iter2);
-
+  //auto iter3 = index_names_.find(table_name)->second;
+  //for(auto iter4 = iter3.begin(); iter4 != iter3.end(); iter4++){
+  //  iter3.erase(iter4);
+  //}
+  index_names_.erase(table_name);
   // delete table_info;
   return DB_SUCCESS;
 }
