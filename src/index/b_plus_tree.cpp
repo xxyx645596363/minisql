@@ -465,8 +465,8 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
     InternalPage *root_ = reinterpret_cast<InternalPage *>(root_page);
     end_key = root_->KeyAt(root_->GetSize() - 1);
   }
-  // auto end = reinterpret_cast<LeafPage *> (FindLeafPage(end_key, false));//wsx加了个false参数
-  auto end = reinterpret_cast<LeafPage *> (FindLeafPage(end_key));
+  auto end = reinterpret_cast<LeafPage *> (FindLeafPage(end_key, false, true));//wsx加了个false参数
+  // auto end = reinterpret_cast<LeafPage *> (FindLeafPage(end_key));
   buffer_pool_manager_->UnpinPage(root_page_id_, false);
   return INDEXITERATOR_TYPE(end, buffer_pool_manager_, end->GetSize() - 1);
   return INDEXITERATOR_TYPE();
@@ -481,7 +481,7 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::End() {
  * Note: the leaf page is pinned, you need to unpin it after use.
  */
 INDEX_TEMPLATE_ARGUMENTS
-Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
+Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost, bool rightmost) {
   if(IsEmpty()) return nullptr; 
  //printf("cd into FindLeafPage\n");
   auto page = buffer_pool_manager_->FetchPage(root_page_id_);
@@ -490,11 +490,20 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
     //printf("into loop\n");
     auto internal = reinterpret_cast <InternalPage *> (node);
     page_id_t child_page_id;
-    if(!leftMost){
+    if(!leftMost && !rightmost){
       child_page_id = internal->Lookup(key, comparator_);
     }
-    else{
+    else if (leftMost && !rightmost){
       child_page_id = internal->ValueAt(0);
+    }
+    else if (rightmost && !leftMost)
+    {
+      child_page_id = internal->ValueAt(internal->GetSize() - 1);
+    }
+    else
+    {
+      std::cout << "不能同时最左或最右\n";
+      return nullptr;
     }
     buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
     page = buffer_pool_manager_->FetchPage(child_page_id);
