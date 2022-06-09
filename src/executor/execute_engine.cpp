@@ -97,6 +97,17 @@ dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *cont
   return DB_SUCCESS;
 }
 
+void RecoverMultiCheck(DBStorageEngine *dbs)
+{
+  TableInfo * ti;
+  dbs->catalog_mgr_->GetTable("account", ti);
+  TableHeap *th = ti->GetTableHeap();
+  for (auto iter = th->Begin(nullptr); iter != th->End(); ++iter)
+  {
+    ti->primmap.emplace((*iter).GetField(0)->GetIntVal(), ti->primmap.size());
+    ti->uniquemap.emplace(string((*iter).GetField(1)->GetCharVal(), (*iter).GetField(1)->GetLength()), ti->uniquemap.size());
+  }
+}
 
 dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
@@ -125,6 +136,8 @@ dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *con
     cout << db_name << endl;
     [[maybe_unused]] DBStorageEngine *ori_dbs = new DBStorageEngine(db_name, false);
     dbs_.emplace(db_name, ori_dbs);
+
+    if (db_name == "db0") RecoverMultiCheck(ori_dbs);
   }
 
   db_name_f.close();
