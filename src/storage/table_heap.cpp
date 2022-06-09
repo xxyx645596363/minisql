@@ -78,6 +78,7 @@ bool TableHeap::UpdateTuple(Row &row, const RowId &rid, Transaction *txn) {
   int update_ret = this_page->UpdateTuple(row, &old_row, schema_, txn, lock_manager_, log_manager_);
   if (update_ret == 1)
   {
+    row.SetRowId(rid);
     buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
     return true;
   } 

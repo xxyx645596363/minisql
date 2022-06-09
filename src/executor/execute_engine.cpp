@@ -993,33 +993,44 @@ dberr_t ExecuteEngine::ExecuteDelete(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode table_node = ast->child_;
   if (table_node->type_ != kNodeIdentifier) return DB_FAILED;
   std::string table_name = table_node->val_;
-
-  //判断删除条件：
-  bool allDelete = false;
-  pSyntaxNode condition_node = table_node->next_;
-  std::string condition_name;
-  char *del_val;
-  if (condition_node == nullptr) allDelete = true;
-  else if (!strcmp(condition_node->child_->val_, "="))//偷个懒，根据验收流程默认条件为=,且只有一个条件
-  {
-    condition_name = condition_node->child_->child_->val_;//名称
-    //获取值：
-    del_val = condition_node->child_->child_->next_->val_;
-  }
-  else return DB_FAILED;
-
-  //遍历删除：
   TableInfo *del_table; 
   dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, del_table);//获取表
   if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
   Schema *schema = del_table->GetSchema();
+
+  //获取删除条件：
+  bool allDelete = false;
+  vector<SelectCondition *> del_conditions;
+  pSyntaxNode condition_node = table_node->next_;
+  if (condition_node == nullptr) allDelete = true;
+  else if (condition_node->type_ == kNodeConditions)
+  {
+    getSelectCondition(del_conditions, condition_node, schema);
+    
+  }
+  else return DB_FAILED;
+  // bool allDelete = false;
+  // pSyntaxNode condition_node = table_node->next_;
+  // std::string condition_name;
+  // char *del_val;
+  // if (condition_node == nullptr) allDelete = true;
+  // else if (!strcmp(condition_node->child_->val_, "="))//偷个懒，根据验收流程默认条件为=,且只有一个条件
+  // {
+  //   condition_name = condition_node->child_->child_->val_;//名称
+  //   //获取值：
+  //   del_val = condition_node->child_->child_->next_->val_;
+  // }
+  // else return DB_FAILED;
+
+  //遍历删除：
   TableHeap *table_heap = del_table->GetTableHeap();//获取堆表
   vector<IndexInfo *> indexes;
   dberr_t getindexes_ret = now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes);
   if (getindexes_ret != DB_SUCCESS) return DB_FAILED;
   for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter)//遍历堆表
   {
-    if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
+    // if (allDelete || checkDeleteRow(*iter, condition_name, del_val, schema))//若全部删除或row满足删除条件，则删除
+    if (allDelete || checkCondition(del_conditions, *iter, schema))//若全部删除或row满足删除条件，则删除
     {
       //调用堆表删除
       table_heap->ApplyDelete((*iter).GetRowId(), nullptr);
@@ -1138,6 +1149,10 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
   pSyntaxNode table_node = ast->child_;
   if (table_node->type_ != kNodeIdentifier) return DB_FAILED;
   std::string table_name = table_node->val_;
+  TableInfo *ud_table; 
+  dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, ud_table);//获取表
+  if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
+  Schema *schema = ud_table->GetSchema();
 
   vector<UpdateItem> updateitems;
   if (GetUpdateItem(updateitems, table_node->next_) != updateitems.size())
@@ -1146,33 +1161,40 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
     return DB_FAILED;
   }
 
-  //判断更新条件：
+  //获取更新条件：
   bool allUpdate = false;
+  vector<SelectCondition *> ud_conditions;
   pSyntaxNode condition_node = table_node->next_->next_;
-  std::string condition_name;
-  char *update_val;
   if (condition_node == nullptr) allUpdate = true;
-  else if (!strcmp(condition_node->child_->val_, "="))//偷个懒，根据验收流程默认条件为=,且只有一个条件
+  else if (condition_node->type_ == kNodeConditions)
   {
-    condition_name = condition_node->child_->child_->val_;//名称
-    //获取值：
-    update_val = condition_node->child_->child_->next_->val_;
-    // cout << "update " << condition_name << "=" << update_val<< endl;
+    getSelectCondition(ud_conditions, condition_node, schema);
+    
   }
   else return DB_FAILED;
+  // bool allUpdate = false;
+  // pSyntaxNode condition_node = table_node->next_->next_;
+  // std::string condition_name;
+  // char *update_val;
+  // if (condition_node == nullptr) allUpdate = true;
+  // else if (!strcmp(condition_node->child_->val_, "="))//偷个懒，根据验收流程默认条件为=,且只有一个条件
+  // {
+  //   condition_name = condition_node->child_->child_->val_;//名称
+  //   //获取值：
+  //   update_val = condition_node->child_->child_->next_->val_;
+  //   // cout << "update " << condition_name << "=" << update_val<< endl;
+  // }
+  // else return DB_FAILED;
 
   //遍历更新：
-  TableInfo *ud_table; 
-  dberr_t getTable_ret = now_dbs->catalog_mgr_->GetTable(table_name, ud_table);//获取表
-  if (getTable_ret == DB_TABLE_NOT_EXIST) return DB_TABLE_NOT_EXIST;
-  Schema *schema = ud_table->GetSchema();
   TableHeap *table_heap = ud_table->GetTableHeap();//获取堆表
   vector<IndexInfo *> indexes;
   dberr_t getindexes_ret = now_dbs->catalog_mgr_->GetTableIndexes(table_name, indexes);//获取索引
   if (getindexes_ret != DB_SUCCESS) return DB_FAILED;
   for (auto iter = table_heap->Begin(nullptr); iter != table_heap->End(); ++iter)//遍历堆表
   {
-    if (allUpdate || checkDeleteRow(*iter, condition_name, update_val, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
+    if (allUpdate || checkCondition(ud_conditions, *iter, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
+    // if (allUpdate || checkDeleteRow(*iter, condition_name, update_val, schema))//若全部更新或row满足更新条件，则更新（此处判断条件的函数和上面公用）
     {
       // cout << "满足更新条件\n";
       auto newrow = GetNewRow(*iter, updateitems, schema);
@@ -1186,7 +1208,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
       for (uint32_t i = 0; i < indexes.size(); i++)
       {
         vector<Field> index_fields;
-        index_fields.push_back(*((iter->GetField(indexes[i]->GetColIndex(0)))));
+        index_fields.push_back(*(((*iter).GetField(indexes[i]->GetColIndex(0)))));
         Row key_row(index_fields);
         if (indexes[i]->GetIndex()->RemoveEntry(key_row, nullptr) != DB_SUCCESS)
         {
@@ -1198,6 +1220,7 @@ dberr_t ExecuteEngine::ExecuteUpdate(pSyntaxNode ast, ExecuteContext *context) {
         index_fields.clear();
         index_fields.push_back(*(newrow->GetField(indexes[i]->GetColIndex(0))));
         Row new_key_row(index_fields);
+        new_key_row.SetRowId(newrow->GetRowId());
         if (indexes[i]->GetIndex()->InsertEntry(new_key_row, newrow->GetRowId(), nullptr) != DB_SUCCESS)
         {
           cout << "更新插入索引记录失败\n";
