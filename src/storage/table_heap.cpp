@@ -10,7 +10,7 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
     auto this_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(this_page_id));
     if (this_page->InsertTuple(row, schema_, txn, lock_manager_, log_manager_))
     {
-      buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
+      // buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
       return true;
     }
     page_id_t next_page_id = this_page->GetNextPageId();
@@ -32,7 +32,7 @@ bool TableHeap::InsertTuple(Row &row, Transaction *txn) {
       buffer_pool_manager_->UnpinPage(this_page_id, true);//将该页unpin
     }
     else  first_page_id_ = new_page_id; 
-    buffer_pool_manager_->UnpinPage(new_page_id, true);//将该页unpin
+    // buffer_pool_manager_->UnpinPage(new_page_id, true);//将该页unpin
     return true;
   }
   buffer_pool_manager_->UnpinPage(new_page_id, false);//将该页unpin
