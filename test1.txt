@@ -1,0 +1,57 @@
+create database db0;
+create database db1;
+create database db2;
+show databases;
+
+use db0;
+create table account(
+  id int,
+  name char(16) unique,
+  balance float,
+  primary key(id)
+);
+show tables;
+
+execfile "account00.txt";
+execfile "accounts1.txt";
+execfile "accounts2.txt";
+
+select * from account;
+select * from account where id = 12509996;
+select * from account where balance = 788.87;
+select * from account where name = "name9996";
+select * from account where id <> 12509996;
+select * from account where balance <> 788.87;
+select * from account where name <> "name9996";
+select name, balance from account where balance >= 100.00 and balance <= 200.00;
+select * from account where balance < 100.00 and id < 3300100;
+
+insert into account values(12509996, "name9996", 788.87);
+create index idx01 on account(balance);
+
+create index idx01 on account(name);
+show indexes;
+select * from account where name = "name9996";
+delete from account where name = "name9996";
+select * from account where name = "name9996";
+insert into account values(12509996, "name-1", 788.87);
+select * from account where name = "name-1";
+drop index idx01;
+select * from account where name = "name-1";
+
+update account set balance = 111.11 where id >= 12509900 and id < 12509920;
+select * from account where id >= 12509900 and id < 12509920;
+
+delete from account;
+select * from account;
+
+drop table account;
+show tables;
+
+quit;
+
+show databases;
+use db0;
+
+drop database db1;
+show databases;
